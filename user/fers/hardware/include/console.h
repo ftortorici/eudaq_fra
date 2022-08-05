@@ -65,7 +65,21 @@ typedef struct {
 } SocketBuffer_t;
 
 
-#ifdef linux
+#ifdef _WIN32
+
+    #pragma comment(lib, "ws2_32.lib") // Winsock Library
+
+    #include <conio.h>
+    #include <process.h>
+    #include <stdint.h>
+    #include <string.h>   
+
+    #define myscanf     scanf
+    #define getch       Con_getch
+    #define kbhit       Con_kbhit
+
+#else  // linux
+
     #include <sys/time.h> /* struct timeval, select() */
     #include <termios.h>  /* tcgetattr(), tcsetattr() */
     #include <stdlib.h>   /* atexit(), exit() */
@@ -83,19 +97,11 @@ typedef struct {
 int _scanf(char *fmt, ...);
 
 
-#else  // Windows
 
-    #pragma comment(lib, "ws2_32.lib") // Winsock Library
 
-    #include <conio.h>
-    #include <process.h>
-	#include <stdint.h>
-	#include <string.h>   
 
-    #define myscanf     scanf
-	#define getch       Con_getch
-	#define kbhit       Con_kbhit
-	
+
+
 #endif
 
 
