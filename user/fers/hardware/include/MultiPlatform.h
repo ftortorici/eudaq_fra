@@ -56,7 +56,8 @@
 	#include <unistd.h>
 	#include <errno.h>
 
-	#include <endian.h>
+	//#include <endian.h>
+	#include <machine/endian.h>
 #endif
 
 
