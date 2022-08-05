@@ -262,7 +262,7 @@ static int eth_usb_ReadRawEvent(int handle, int *nb)
 						fprintf(rdlog, "%3d : %08X\n", i, EvBuff[h][i]);
 					fflush(rdlog);
 				}
-			} else if (footer_cnt > 0) {
+			} else if (footer_cnt[h] > 0) {
 				footer_cnt[h]--;
 				if ((footer_cnt[h] <= 9) && (footer_cnt[h] > 0)) footer = (footer << 8) | (uint64_t)LLBuff[h][rp[h]];
 				if (footer_cnt[h] == 0) {
