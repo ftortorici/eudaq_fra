@@ -18,3 +18,6 @@ add_subdirectory(MuPix8)
 add_subdirectory(piStage)
 add_subdirectory(ITS3)
 add_subdirectory(cms-phase2)
+
+# per fers
+add_subdirectory(fers)
