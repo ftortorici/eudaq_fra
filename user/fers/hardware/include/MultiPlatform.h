@@ -99,9 +99,7 @@ typedef int							f_socket_t;			//!< Return type of socket(). On Linux socket() 
 
 	uint64_t get_time();
 
-#endif
-
-#ifdef linux
+#else
 
 	// LINUX VERSION NOT TESTED!!!
 	typedef pthread_mutex_t			mutex_t;
