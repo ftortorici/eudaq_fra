@@ -27,7 +27,13 @@ FILE *ConLog = NULL;
 SocketBuffer_t Sbuff; 
 
 
-#ifdef linux
+#ifdef _WIN32  // Windows
+
+#include <windows.h>
+#include <tchar.h>
+#include <strsafe.h>
+
+#else // linux
 
 #define CLEARSCR "clear"
 
@@ -73,12 +79,6 @@ int _scanf(char *fmt, ...)	// // before calling the scanf function it is necessa
 	raw();
 	return ret;
 }
-
-#else  // Windows
-
-#include <windows.h>
-#include <tchar.h>
-#include <strsafe.h>
 
 #endif
 
