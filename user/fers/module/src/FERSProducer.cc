@@ -100,15 +100,30 @@ void FERSProducer::DoConfigure(){
     m_flag_ts = false;
     m_flag_tg = true;
   }
+
   fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
   fers_hv_imax = conf->Get("FERS_HV_IMax", 0);
-  std::cout << "\nFERS_HV_Vbias "<< fers_hv_vbias <<endl;
-  std::cout << "\nFERS_HV_Imax  "<< fers_hv_imax << endl; 
+  int retcode = 0; // to store return code from calls to fers
+  std::cout << "\n**** FERS_HV_Vbias from config: "<< fers_hv_vbias << std::endl;
+  retcode = HV_Set_Vbias( handle, fers_hv_vbias);
+  if (retcode == 0) {
+    EUDAQ_INFO("HV bias set!");
+  } else {
+    EUDAQ_THROW("HV bias NOT set");
+  }
+  std::cout << "\n**** FERS_HV_Imax from config: "<< fers_hv_imax <<  std::endl; 
+  retcode = HV_Set_Imax( handle, fers_hv_imax);
+  if (retcode == 0) {
+    EUDAQ_INFO("I max set!");
+  } else {
+    EUDAQ_THROW("I max NOT set");
+  }
+
 }
 
 //----------DOC-MARK-----BEG*RUN-----DOC-MARK----------
 void FERSProducer::DoStartRun(){
-  m_exit_of_run = false;:
+  m_exit_of_run = false;
   // here the hardware is told to startup
 }
 
