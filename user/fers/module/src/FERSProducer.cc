@@ -42,6 +42,8 @@ private:
 
   std::string fers_ip_address;  // IP address of the board
   int handle;		 	// Board handle
+  float fers_hv_vbias;
+  float fers_hv_imax;
 };
 //----------DOC-MARK-----END*DEC-----DOC-MARK----------
 //----------DOC-MARK-----BEG*CON-----DOC-MARK----------
@@ -98,11 +100,15 @@ void FERSProducer::DoConfigure(){
     m_flag_ts = false;
     m_flag_tg = true;
   }
+  fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
+  fers_hv_imax = conf->Get("FERS_HV_IMax", 0);
+  std::cout << "\nFERS_HV_Vbias "<< fers_hv_vbias <<endl;
+  std::cout << "\nFERS_HV_Imax  "<< fers_hv_imax << endl; 
 }
 
 //----------DOC-MARK-----BEG*RUN-----DOC-MARK----------
 void FERSProducer::DoStartRun(){
-  m_exit_of_run = false;
+  m_exit_of_run = false;:
   // here the hardware is told to startup
 }
 
