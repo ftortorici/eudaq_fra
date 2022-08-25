@@ -104,17 +104,23 @@ void FERSProducer::DoConfigure(){
   fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
   fers_hv_imax = conf->Get("FERS_HV_IMax", 0);
   int retcode = 0; // to store return code from calls to fers
+  float fers_dummyvar = 0;
+  int retcode_dummy = 0;
   std::cout << "\n**** FERS_HV_Vbias from config: "<< fers_hv_vbias << std::endl;
-  retcode = HV_Set_Vbias( handle, fers_hv_vbias);
+  retcode = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
+  retcode_dummy = HV_Get_Vbias( handle, &fers_dummyvar); // read back from fers
   if (retcode == 0) {
     EUDAQ_INFO("HV bias set!");
+    std::cout << "**** readback HV value: "<< fers_dummyvar << std::endl;
   } else {
     EUDAQ_THROW("HV bias NOT set");
   }
   std::cout << "\n**** FERS_HV_Imax from config: "<< fers_hv_imax <<  std::endl; 
   retcode = HV_Set_Imax( handle, fers_hv_imax);
+  retcode_dummy = HV_Get_Imax( handle, &fers_dummyvar); // read back from fers
   if (retcode == 0) {
     EUDAQ_INFO("I max set!");
+    std::cout << "**** readback Imax value: "<< fers_dummyvar << std::endl;
   } else {
     EUDAQ_THROW("I max NOT set");
   }
