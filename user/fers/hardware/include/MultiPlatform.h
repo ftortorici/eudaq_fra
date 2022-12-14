@@ -56,8 +56,8 @@
 	#include <unistd.h>
 	#include <errno.h>
 
-	//#include <endian.h>
-	#include <machine/endian.h>
+	#include <endian.h> // linux
+	//#include <machine/endian.h> // macos
 #endif
 
 
