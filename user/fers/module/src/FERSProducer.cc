@@ -89,8 +89,8 @@ void FERSProducer::DoInitialise(){
 void FERSProducer::DoConfigure(){
   auto conf = GetConfiguration();
   conf->Print(std::cout);
-  std::string m_prova = conf->Get("PROVA", "pippo");
-  std::cout <<"######## RINO ###########  "<<m_prova<<std::endl;
+  //std::string m_prova = conf->Get("PROVA", "pippo");
+  //std::cout <<"######## RINO ###########  "<<m_prova<<std::endl;
   m_plane_id = conf->Get("EX0_PLANE_ID", 0);
   m_ms_busy = std::chrono::milliseconds(conf->Get("EX0_DURATION_BUSY_MS", 1000));
   m_flag_ts = conf->Get("EX0_ENABLE_TIMESTAMP", 0);
@@ -106,16 +106,8 @@ void FERSProducer::DoConfigure(){
   int retcode = 0; // to store return code from calls to fers
   float fers_dummyvar = 0;
   int retcode_dummy = 0;
-  std::cout << "\n**** FERS_HV_Vbias from config: "<< fers_hv_vbias << std::endl;
-  retcode = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
-  retcode_dummy = HV_Get_Vbias( handle, &fers_dummyvar); // read back from fers
-  if (retcode == 0) {
-    EUDAQ_INFO("HV bias set!");
-    std::cout << "**** readback HV value: "<< fers_dummyvar << std::endl;
-  } else {
-    EUDAQ_THROW("HV bias NOT set");
-  }
   std::cout << "\n**** FERS_HV_Imax from config: "<< fers_hv_imax <<  std::endl; 
+  retcode = HV_Set_Imax( handle, fers_hv_imax);
   retcode = HV_Set_Imax( handle, fers_hv_imax);
   retcode_dummy = HV_Get_Imax( handle, &fers_dummyvar); // read back from fers
   if (retcode == 0) {
@@ -124,6 +116,19 @@ void FERSProducer::DoConfigure(){
   } else {
     EUDAQ_THROW("I max NOT set");
   }
+  std::cout << "\n**** FERS_HV_Vbias from config: "<< fers_hv_vbias << std::endl;
+  retcode = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
+  retcode = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
+  retcode_dummy = HV_Get_Vbias( handle, &fers_dummyvar); // read back from fers
+  if (retcode == 0) {
+    EUDAQ_INFO("HV bias set!");
+    std::cout << "**** readback HV value: "<< fers_dummyvar << std::endl;
+  } else {
+    EUDAQ_THROW("HV bias NOT set");
+  }
+
+  HV_Set_OnOff(handle, 1); // set HV on
+
 
 }
 
@@ -150,6 +155,7 @@ void FERSProducer::DoReset(){
   }
   m_ms_busy = std::chrono::milliseconds();
   m_exit_of_run = false;
+  HV_Set_OnOff( handle, 0); // set HV off
 }
 
 //----------DOC-MARK-----BEG*TER-----DOC-MARK----------
@@ -159,6 +165,7 @@ void FERSProducer::DoTerminate(){
     fclose(m_file_lock);
     m_file_lock = 0;
   }
+  HV_Set_OnOff( handle, 0); // set HV off
 }
 
 //----------DOC-MARK-----BEG*LOOP-----DOC-MARK----------
