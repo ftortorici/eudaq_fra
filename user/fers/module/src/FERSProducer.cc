@@ -193,11 +193,25 @@ void FERSProducer::RunLoop(){
 
     std::vector<uint8_t> hit(x_pixel*y_pixel, 0);
     hit[position(gen)] = signal(gen);
+    //
+    for (int i=0; i<y_pixel; ++i)
+	   for(int n=0; n<x_pixel; ++n)
+		  hit.at(n+i*x_pixel) = 5;//n+i*x_pixel;
+
+    // dump su console
+    for(size_t i = 0; i < y_pixel; ++i) {
+            for(size_t n = 0; n < x_pixel; ++n){
+        	    std::cout<< (int)hit[n+i*x_pixel] <<"_";
+            }
+            std::cout<< "<<"<< std::endl;
+    }
+    std::cout<<std::endl;
+
     std::vector<uint8_t> data;
     data.push_back(x_pixel);
     data.push_back(y_pixel);
     data.insert(data.end(), hit.begin(), hit.end());
-    
+
     uint32_t block_id = m_plane_id;
     ev->AddBlock(block_id, data);
     SendEvent(std::move(ev));
