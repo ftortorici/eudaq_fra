@@ -196,16 +196,16 @@ void FERSProducer::RunLoop(){
     //
     for (int i=0; i<y_pixel; ++i)
 	   for(int n=0; n<x_pixel; ++n)
-		  hit.at(n+i*x_pixel) = 5;//n+i*x_pixel;
+		  hit.at(n+i*x_pixel) = n+i*x_pixel;
 
     // dump su console
-    for(size_t i = 0; i < y_pixel; ++i) {
-            for(size_t n = 0; n < x_pixel; ++n){
-        	    std::cout<< (int)hit[n+i*x_pixel] <<"_";
-            }
-            std::cout<< "<<"<< std::endl;
-    }
-    std::cout<<std::endl;
+    //for(size_t i = 0; i < y_pixel; ++i) {
+    //        for(size_t n = 0; n < x_pixel; ++n){
+    //    	    std::cout<< (int)hit[n+i*x_pixel] <<"_";
+    //        }
+    //        std::cout<< "<<"<< std::endl;
+    //}
+    //std::cout<<std::endl;
 
     std::vector<uint8_t> data;
     data.push_back(x_pixel);
