@@ -1,0 +1,8 @@
+#!/bin/sh
+rm ./eu*
+cd ../build
+make clean
+make -j 8
+make install
+cd ../bin
+sh vai

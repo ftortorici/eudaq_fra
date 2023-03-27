@@ -1,0 +1,7 @@
+
+./euRun &
+./euLog &
+sleep 2
+./euCliProducer -n FERSProducer -t my_fers0 &
+./euCliCollector -n FERSDataCollector -t my_dc &
+./euCliMonitor -n FERSMonitor -t my_mon &
