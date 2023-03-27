@@ -111,7 +111,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 	if(m_en_print) {
 		ev->Print(std::cout);
 
-		// dump su console
+		// dump su log
 		std::string printme="";
 		size_t nblocks= ev->NumBlocks();
 		auto block_n_list = ev->GetBlockNumList();

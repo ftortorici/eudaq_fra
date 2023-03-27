@@ -19,6 +19,14 @@
 #ifndef _WIN32
 #include <sys/file.h>
 #endif
+
+#include "configure.h" // for ConfigureFERS
+#include "JanusC.h"
+Config_t WDcfg;	
+RunVars_t RunVars;
+int SockConsole;	// 0: use stdio console, 1: use socket console
+char ErrorMsg[250];	
+
 //----------DOC-MARK-----BEG*DEC-----DOC-MARK----------
 class FERSProducer : public eudaq::Producer {
   public:
@@ -101,6 +109,8 @@ void FERSProducer::DoConfigure(){
     m_flag_tg = true;
   }
 
+  ConfigureFERS(handle, 0); // 1 = soft cfg, no reset
+
   fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
   fers_hv_imax = conf->Get("FERS_HV_IMax", 0);
   int retcode = 0; // to store return code from calls to fers
@@ -129,18 +139,21 @@ void FERSProducer::DoConfigure(){
 
   HV_Set_OnOff(handle, 1); // set HV on
 
-
+  sleep(1);
 }
 
 //----------DOC-MARK-----BEG*RUN-----DOC-MARK----------
 void FERSProducer::DoStartRun(){
   m_exit_of_run = false;
   // here the hardware is told to startup
+  FERS_SendCommand( handle, CMD_ACQ_START );
 }
 
 //----------DOC-MARK-----BEG*STOP-----DOC-MARK----------
 void FERSProducer::DoStopRun(){
   m_exit_of_run = true;
+
+  FERS_SendCommand( handle, CMD_ACQ_STOP );
 }
 
 //----------DOC-MARK-----BEG*RST-----DOC-MARK----------
@@ -172,12 +185,12 @@ void FERSProducer::DoTerminate(){
 void FERSProducer::RunLoop(){
   auto tp_start_run = std::chrono::steady_clock::now();
   uint32_t trigger_n = 0;
-  uint8_t x_pixel = 16;
-  uint8_t y_pixel = 16;
+  uint8_t x_pixel = 8;
+  uint8_t y_pixel = 8;
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<uint32_t> position(0, x_pixel*y_pixel-1);
-  std::uniform_int_distribution<uint32_t> signal(0, 255);
+  std::uniform_int_distribution<uint32_t> signal(0, 63);
   while(!m_exit_of_run){
     auto ev = eudaq::Event::MakeUnique("FERSRaw");
     ev->SetTag("Plane ID", std::to_string(m_plane_id));
@@ -193,12 +206,24 @@ void FERSProducer::RunLoop(){
 
     std::vector<uint8_t> hit(x_pixel*y_pixel, 0);
     hit[position(gen)] = signal(gen);
-    //
+
+    // simulated data
     for (int i=0; i<y_pixel; ++i)
-	   for(int n=0; n<x_pixel; ++n)
+	   for(int n=0; n<x_pixel; ++n) 
 		  hit.at(n+i*x_pixel) = n+i*x_pixel;
 
-    // dump su console
+    // real data!
+    int nchan = x_pixel*y_pixel;
+    uint32_t data_raw_0; // chans 0..31
+    uint32_t data_raw_1; // chans 32..63
+    for (int ii=0; ii < nchan/2; ++ii) {
+	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_0, ii), &data_raw_0);
+	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_1, ii), &data_raw_1);
+	  hit.at( ii          ) = data_raw_0;
+	  hit.at( ii + nchan/2) = data_raw_1;
+    }
+
+    //dump on console
     //for(size_t i = 0; i < y_pixel; ++i) {
     //        for(size_t n = 0; n < x_pixel; ++n){
     //    	    std::cout<< (int)hit[n+i*x_pixel] <<"_";
