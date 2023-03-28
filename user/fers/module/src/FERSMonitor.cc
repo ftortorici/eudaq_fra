@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "eudaq/StdEventConverter.hh"
 #include "eudaq/RawEvent.hh"
+#include "FERSlib.h"
 class FERSEventConverter: public eudaq::StdEventConverter{
 public:
   bool Converting(eudaq::EventSPC d1, eudaq::StdEventSP d2, eudaq::ConfigSPC conf) const override;
@@ -111,6 +112,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 	if(m_en_print) {
 		ev->Print(std::cout);
 
+		float vmon, imon;
+
 		// dump su log
 		std::string printme="";
 		size_t nblocks= ev->NumBlocks();
@@ -130,16 +133,22 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			uint8_t uip1 = block[4];
 			uint8_t uip2 = block[5];
 			uint8_t uip3 = block[6];
+			uint8_t sernum=block[7];
 
-			std::vector<uint8_t> hit(block.begin()+7, block.end());
+			std::vector<uint8_t> hit(block.begin()+8, block.end());
 			if(hit.size() != x_pixel*y_pixel)
 							EUDAQ_THROW("Unknown data");
-			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS ID " + std::to_string(uhandle) + " ("
+			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS ID " + std::to_string(uhandle) 
+				+ " ip "
 				+ std::to_string(uip0) +"."
 				+ std::to_string(uip1) +"."
 				+ std::to_string(uip2) +"."
-				+ std::to_string(uip3) +")";
+				+ std::to_string(uip3)
+			       	+" serial# "+ std::to_string(sernum);
 			EUDAQ_WARN(printme);
+
+			EUDAQ_WARN("Current Vmon = " + std::to_string(vmon) + " V, Imon = " + std::to_string(imon) +" ??A");
+
 			EUDAQ_WARN("Monitor > ---------- start dumping");
 			for(size_t i = 0; i < y_pixel; ++i) {
 			printme="";
@@ -149,9 +158,12 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_WARN(printme);
 			}
 			EUDAQ_WARN(printme);
+
+			HV_Get_Vmon( uhandle, &vmon);
+			HV_Get_Imon( uhandle, &imon);
 		}
 		EUDAQ_WARN("Monitor > ---------- end dumping");
-
+		
 
 
 	}

@@ -260,6 +260,11 @@ void FERSProducer::RunLoop(){
 	    }
     }
     data.push_back( ip_temp );
+    // serial number
+    int sernum=0;
+    HV_Get_SerNum(handle, &sernum);
+    data.push_back(sernum);
+
 
     data.insert(data.end(), hit.begin(), hit.end());
 
