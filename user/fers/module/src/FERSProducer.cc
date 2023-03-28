@@ -137,9 +137,9 @@ void FERSProducer::DoConfigure(){
     EUDAQ_THROW("HV bias NOT set");
   }
 
+  sleep(1);
   HV_Set_OnOff(handle, 1); // set HV on
 
-  sleep(1);
 }
 
 //----------DOC-MARK-----BEG*RUN-----DOC-MARK----------
@@ -232,10 +232,37 @@ void FERSProducer::RunLoop(){
     //}
     //std::cout<<std::endl;
 
+
+
     std::vector<uint8_t> data;
     data.push_back(x_pixel);
     data.push_back(y_pixel);
+
+    // test metadata
+    data.push_back( (uint8_t)handle );
+    // convert fers ip address to numbers
+    char ip_address[20];
+    int ip_temp = 0;
+    char c;
+    strcpy(ip_address, fers_ip_address.c_str());
+    std::cout<<"*-*-* fers ip is "<< ip_address << std::endl;
+    for (int i=0; i<20; i++){
+	    c = ip_address[i];
+	    if ( c == '.' ) {
+		    data.push_back( ip_temp );
+		    //std::cout<<"*-*-* trovato . in posizione "<< i<< " numero = "<< ip_temp <<std::endl;
+		    ip_temp = 0;
+	    } else {
+		    if ( (c >= '0') && ( c <= '9') ) {
+			    ip_temp = 10*ip_temp + (int)c - '0';
+			    //std::cout<<"*-*- letto "<< c << " numero = "<< ip_temp << std::endl;
+		    }
+	    }
+    }
+    data.push_back( ip_temp );
+
     data.insert(data.end(), hit.begin(), hit.end());
+
 
     uint32_t block_id = m_plane_id;
     ev->AddBlock(block_id, data);

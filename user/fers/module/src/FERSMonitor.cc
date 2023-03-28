@@ -90,7 +90,7 @@ void FERSMonitor::DoConfigure(){
   m_en_std_converter = conf->Get("EX0_ENABLE_STD_CONVERTER", 0);
   m_en_std_print = conf->Get("EX0_ENABLE_STD_PRINT", 0);
 
-	char printme[100] = "";
+	char printme[200] = "";
 	std::sprintf( printme, "monitor > print = %d std_converter = %d std_print = %d", m_en_print, m_en_std_converter, m_en_print);
 	EUDAQ_WARN(printme);
 }
@@ -114,17 +114,31 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		// dump su log
 		std::string printme="";
 		size_t nblocks= ev->NumBlocks();
+		//EUDAQ_WARN("number of blocks: "+std::to_string(nblocks));
 		auto block_n_list = ev->GetBlockNumList();
+		
 		for(auto &block_n: block_n_list){
 			std::vector<uint8_t> block = ev->GetBlock(block_n);
+
 			if(block.size() < 2)
 							EUDAQ_THROW("Unknown data");
 			uint8_t x_pixel = block[0];
 			uint8_t y_pixel = block[1];
-			std::vector<uint8_t> hit(block.begin()+2, block.end());
+
+			uint8_t uhandle = block[2];
+			uint8_t uip0 = block[3];
+			uint8_t uip1 = block[4];
+			uint8_t uip2 = block[5];
+			uint8_t uip3 = block[6];
+
+			std::vector<uint8_t> hit(block.begin()+7, block.end());
 			if(hit.size() != x_pixel*y_pixel)
 							EUDAQ_THROW("Unknown data");
-			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event";
+			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS ID " + std::to_string(uhandle) + " ("
+				+ std::to_string(uip0) +"."
+				+ std::to_string(uip1) +"."
+				+ std::to_string(uip2) +"."
+				+ std::to_string(uip3) +")";
 			EUDAQ_WARN(printme);
 			EUDAQ_WARN("Monitor > ---------- start dumping");
 			for(size_t i = 0; i < y_pixel; ++i) {
