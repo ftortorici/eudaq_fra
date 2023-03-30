@@ -942,7 +942,7 @@ int FERS_GetEventFromBoard(int handle, int *DataQualifier, double *tstamp_us, vo
 		*nb = EvBuff_nb[h];
 		EvBuff_nb[h] = 0;
 	}
-	if (*nb == 0) return 0;
+	if (*nb == 0) return 1; // originally 0, shouldn't it be 1?
 	else return 0;
 }
 

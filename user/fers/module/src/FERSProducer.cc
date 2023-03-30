@@ -26,6 +26,7 @@ Config_t WDcfg;
 RunVars_t RunVars;
 int SockConsole;	// 0: use stdio console, 1: use socket console
 char ErrorMsg[250];	
+int NumBrd=1; // number of boards
 
 //----------DOC-MARK-----BEG*DEC-----DOC-MARK----------
 class FERSProducer : public eudaq::Producer {
@@ -52,6 +53,8 @@ private:
   int handle;		 	// Board handle
   float fers_hv_vbias;
   float fers_hv_imax;
+  int fers_acq_mode;
+  int vhandle[FERSLIB_MAX_NBRD];
 };
 //----------DOC-MARK-----END*DEC-----DOC-MARK----------
 //----------DOC-MARK-----BEG*CON-----DOC-MARK----------
@@ -77,7 +80,9 @@ void FERSProducer::DoInitialise(){
 #endif
 
   fers_ip_address = ini->Get("FERS_IP_ADDRESS", "1.0.0.0");
-  memset(&handle, -1, sizeof(handle));
+  //memset(&handle, -1, sizeof(handle));
+  for (int i=0; i<FERSLIB_MAX_NBRD; i++)
+	  vhandle[i] = -1;
   char ip_address[20];
   char connection_path[40];
   strcpy(ip_address, fers_ip_address.c_str());
@@ -85,11 +90,21 @@ void FERSProducer::DoInitialise(){
   std::cout <<"----3333---- "<<connection_path<<std::endl;
   int ret = FERS_OpenDevice(connection_path, &handle);
   std::cout <<"-------- ret= "<<ret<<std::endl;
-  if(ret == 0)
+  if(ret == 0){
     std::cout <<"Connected to: "<< connection_path<<std::endl;
-  else
+    vhandle[0] = handle;
+  } else
     EUDAQ_THROW("unable to connect to fers with ip address: "+ fers_ip_address);
-  std::cout <<" ------- RINO ----------   "<<fers_ip_address<<std::endl;  
+
+  // try and init readout
+  int ROmode = ini->Get("FERS_RO_MODE",0);
+  int allocsize;
+  FERS_InitReadout(handle,ROmode,&allocsize);
+
+  std::cout <<" ------- RINO ----------   "<<fers_ip_address
+	  <<" handle "<<handle
+	  <<" ROmode "<<ROmode<<"  allocsize "<<allocsize<<std::endl;  
+
 }
 
 
@@ -109,7 +124,9 @@ void FERSProducer::DoConfigure(){
     m_flag_tg = true;
   }
 
+  fers_acq_mode = conf->Get("FERS_ACQ_MODE",0);
   ConfigureFERS(handle, 0); // 1 = soft cfg, no reset
+  std::cout<<"in FERSProducer::DoConfigure, handle = "<< handle<< std::endl;
 
   fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
   fers_hv_imax = conf->Get("FERS_HV_IMax", 0);
@@ -146,14 +163,24 @@ void FERSProducer::DoConfigure(){
 void FERSProducer::DoStartRun(){
   m_exit_of_run = false;
   // here the hardware is told to startup
+  //int status = FERS_StartAcquisition(&handle, NumBrd, fers_acq_mode);
   FERS_SendCommand( handle, CMD_ACQ_START );
+  //EUDAQ_INFO("status of FERS_StartAcquisition = "+std::to_string(status));
+  EUDAQ_INFO("FERS_ReadoutStatus (0=idle, 1=running) = "+std::to_string(FERS_ReadoutStatus));
 }
 
 //----------DOC-MARK-----BEG*STOP-----DOC-MARK----------
 void FERSProducer::DoStopRun(){
   m_exit_of_run = true;
-
+// Inputs:		handle = device handles (af all boards)
+// 				NumBrd = number of boards to start
+//				StartMode = start mode (Async, T0/T1 chain, TDlink)
+// Return:		0=OK, negative number = error code
+// --------------------------------------------------------------------------------------------------------- 
+  //int status = FERS_StopAcquisition(vhandle, NumBrd, fers_acq_mode);
   FERS_SendCommand( handle, CMD_ACQ_STOP );
+  //EUDAQ_INFO("status of FERS_StopAcquisition = "+std::to_string(status));
+  EUDAQ_INFO("FERS_ReadoutStatus (0=idle, 1=running) = "+std::to_string(FERS_ReadoutStatus));
 }
 
 //----------DOC-MARK-----BEG*RST-----DOC-MARK----------
@@ -178,6 +205,7 @@ void FERSProducer::DoTerminate(){
     fclose(m_file_lock);
     m_file_lock = 0;
   }
+  FERS_CloseReadout(handle);
   HV_Set_OnOff( handle, 0); // set HV off
 }
 
@@ -212,7 +240,7 @@ void FERSProducer::RunLoop(){
 	   for(int n=0; n<x_pixel; ++n) 
 		  hit.at(n+i*x_pixel) = n+i*x_pixel;
 
-    // real data!
+    // real data?
     int nchan = x_pixel*y_pixel;
     uint32_t data_raw_0; // chans 0..31
     uint32_t data_raw_1; // chans 32..63
@@ -222,7 +250,26 @@ void FERSProducer::RunLoop(){
 	  hit.at( ii          ) = data_raw_0;
 	  hit.at( ii + nchan/2) = data_raw_1;
     }
+    int DataQualifier = -1;
+    double tstamp_us = -1;
+    int nb = -1;
+    void *Event;
+    int bindex = -1;
+    int status = -1;
+   
+    std::cout<<"--FERS_ReadoutStatus (0=idle, 1=running) = " << FERS_ReadoutStatus <<std::endl;
 
+    status = FERS_GetEvent(vhandle, &bindex, &DataQualifier, &tstamp_us, &Event, &nb);
+    std::cout<<"--status of FERS_GetEvent (0=No Data, 1=Good Data 2=Not Running, <0 = error) = "<< std::to_string(status)<<std::endl;
+    std::cout<<"  --bindex = "<< std::to_string(bindex) <<" tstamp_us = "<< std::to_string(tstamp_us) <<std::endl;
+    std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<" sizeof(Event) = "<< std::to_string(sizeof(Event)) <<std::endl;
+
+    //status = FERS_GetEventFromBoard(handle, &DataQualifier, &tstamp_us, &Event, &nb);
+    //std::cout<<"--status of FERS_GetEventFromBoard (0=OK) = "<< std::to_string(status)<<std::endl;
+    //std::cout<<"  --tstamp_us = "<< std::to_string(tstamp_us) <<std::endl;
+    //std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<" sizeof(Event) = "<< std::to_string(sizeof(Event)) <<std::endl;
+    
+    
     //dump on console
     //for(size_t i = 0; i < y_pixel; ++i) {
     //        for(size_t n = 0; n < x_pixel; ++n){
@@ -239,10 +286,10 @@ void FERSProducer::RunLoop(){
     data.push_back(y_pixel);
 
     // test metadata
-    data.push_back( (uint8_t)handle );
+    //
     // convert fers ip address to numbers
     char ip_address[20];
-    int ip_temp = 0;
+    uint8_t ip_temp = 0;
     char c;
     strcpy(ip_address, fers_ip_address.c_str());
     std::cout<<"*-*-* fers ip is "<< ip_address << std::endl;
@@ -250,12 +297,10 @@ void FERSProducer::RunLoop(){
 	    c = ip_address[i];
 	    if ( c == '.' ) {
 		    data.push_back( ip_temp );
-		    //std::cout<<"*-*-* trovato . in posizione "<< i<< " numero = "<< ip_temp <<std::endl;
 		    ip_temp = 0;
 	    } else {
 		    if ( (c >= '0') && ( c <= '9') ) {
 			    ip_temp = 10*ip_temp + (int)c - '0';
-			    //std::cout<<"*-*- letto "<< c << " numero = "<< ip_temp << std::endl;
 		    }
 	    }
     }
@@ -263,8 +308,13 @@ void FERSProducer::RunLoop(){
     // serial number
     int sernum=0;
     HV_Get_SerNum(handle, &sernum);
-    data.push_back(sernum);
-
+    data.push_back((uint8_t)sernum);
+    //handle
+    data.push_back((uint8_t)handle);
+    // data qualifier
+    data.push_back((uint8_t)DataQualifier);
+    // number of byte of event raw data
+    data.push_back((uint8_t)nb);
 
     data.insert(data.end(), hit.begin(), hit.end());
 

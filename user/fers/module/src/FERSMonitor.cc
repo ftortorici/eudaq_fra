@@ -128,18 +128,19 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			uint8_t x_pixel = block[0];
 			uint8_t y_pixel = block[1];
 
-			uint8_t uhandle = block[2];
-			uint8_t uip0 = block[3];
-			uint8_t uip1 = block[4];
-			uint8_t uip2 = block[5];
-			uint8_t uip3 = block[6];
-			uint8_t sernum=block[7];
+			uint8_t uip0 = block[2];
+			uint8_t uip1 = block[3];
+			uint8_t uip2 = block[4];
+			uint8_t uip3 = block[5];
+			uint8_t sernum=block[6];
+			uint8_t handle=block[7];
+			uint8_t dataq= block[8];
+			uint8_t nb   = block[9];
 
-			std::vector<uint8_t> hit(block.begin()+8, block.end());
+			std::vector<uint8_t> hit(block.begin()+10, block.end());
 			if(hit.size() != x_pixel*y_pixel)
 							EUDAQ_THROW("Unknown data");
-			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS ID " + std::to_string(uhandle) 
-				+ " ip "
+			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS @ ip "
 				+ std::to_string(uip0) +"."
 				+ std::to_string(uip1) +"."
 				+ std::to_string(uip2) +"."
@@ -147,6 +148,16 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			       	+" serial# "+ std::to_string(sernum);
 			EUDAQ_WARN(printme);
 
+			printme = "handle = "+std::to_string(handle)
+				+" data qualifier = "+std::to_string(dataq)
+				+" #bytes = "+std::to_string(nb);
+			EUDAQ_WARN(printme);
+
+			// does not read correctly
+			HV_Get_Vmon( handle, &vmon);
+			HV_Get_Vmon( handle, &vmon);
+			HV_Get_Imon( handle, &imon);
+			HV_Get_Imon( handle, &imon);
 			EUDAQ_WARN("Current Vmon = " + std::to_string(vmon) + " V, Imon = " + std::to_string(imon) +" ??A");
 
 			EUDAQ_WARN("Monitor > ---------- start dumping");
@@ -159,8 +170,6 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			}
 			EUDAQ_WARN(printme);
 
-			HV_Get_Vmon( uhandle, &vmon);
-			HV_Get_Imon( uhandle, &imon);
 		}
 		EUDAQ_WARN("Monitor > ---------- end dumping");
 		
