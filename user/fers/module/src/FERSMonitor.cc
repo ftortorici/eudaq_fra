@@ -137,8 +137,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			uint8_t dataq= block[8];
 			uint8_t nb   = block[9];
 
-			std::vector<uint8_t> hit(block.begin()+10, block.end());
-			if(hit.size() != x_pixel*y_pixel)
+			std::vector<uint8_t> hitraw(block.begin()+10, block.end());
+			if(hitraw.size() != 2*x_pixel*y_pixel)
 							EUDAQ_THROW("Unknown data");
 			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS @ ip "
 				+ std::to_string(uip0) +"."
@@ -153,6 +153,10 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				+" #bytes = "+std::to_string(nb);
 			EUDAQ_WARN(printme);
 
+			std::vector<uint16_t> hit;
+			for (int i = 0; i<hitraw.size()/2; i++)
+				hit.push_back(hitraw.at( 2*i ) + hitraw.at(2*i+1)*256);
+
 			// does not read correctly
 			HV_Get_Vmon( handle, &vmon);
 			HV_Get_Vmon( handle, &vmon);
@@ -163,12 +167,14 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			EUDAQ_WARN("Monitor > ---------- start dumping");
 			for(size_t i = 0; i < y_pixel; ++i) {
 			printme="";
+				//for(size_t n = 0; n < 2*x_pixel; ++n){
+					//printme += std::to_string(hitraw[n+i*x_pixel]) +" ";
 				for(size_t n = 0; n < x_pixel; ++n){
 					printme += std::to_string(hit[n+i*x_pixel]) +" ";
 				};
 				EUDAQ_WARN(printme);
 			}
-			EUDAQ_WARN(printme);
+			//EUDAQ_WARN(printme);
 
 		}
 		EUDAQ_WARN("Monitor > ---------- end dumping");

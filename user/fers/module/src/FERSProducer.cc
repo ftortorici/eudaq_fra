@@ -125,7 +125,7 @@ void FERSProducer::DoConfigure(){
   }
 
   fers_acq_mode = conf->Get("FERS_ACQ_MODE",0);
-  ConfigureFERS(handle, 0); // 1 = soft cfg, no reset
+  //ConfigureFERS(handle, 0); // 1 = soft cfg, no reset
   std::cout<<"in FERSProducer::DoConfigure, handle = "<< handle<< std::endl;
 
   fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
@@ -232,24 +232,16 @@ void FERSProducer::RunLoop(){
     if(m_flag_tg)
       ev->SetTriggerN(trigger_n);
 
-    std::vector<uint8_t> hit(x_pixel*y_pixel, 0);
+    std::vector<uint8_t> hit(2*x_pixel*y_pixel, 0);
     hit[position(gen)] = signal(gen);
 
     // simulated data
     for (int i=0; i<y_pixel; ++i)
-	   for(int n=0; n<x_pixel; ++n) 
+	   for(int n=0; n<2*x_pixel; ++n) 
 		  hit.at(n+i*x_pixel) = n+i*x_pixel;
 
     // real data?
     int nchan = x_pixel*y_pixel;
-    uint32_t data_raw_0; // chans 0..31
-    uint32_t data_raw_1; // chans 32..63
-    for (int ii=0; ii < nchan/2; ++ii) {
-	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_0, ii), &data_raw_0);
-	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_1, ii), &data_raw_1);
-	  hit.at( ii          ) = data_raw_0;
-	  hit.at( ii + nchan/2) = data_raw_1;
-    }
     int DataQualifier = -1;
     double tstamp_us = -1;
     int nb = -1;
@@ -262,23 +254,53 @@ void FERSProducer::RunLoop(){
     status = FERS_GetEvent(vhandle, &bindex, &DataQualifier, &tstamp_us, &Event, &nb);
     std::cout<<"--status of FERS_GetEvent (0=No Data, 1=Good Data 2=Not Running, <0 = error) = "<< std::to_string(status)<<std::endl;
     std::cout<<"  --bindex = "<< std::to_string(bindex) <<" tstamp_us = "<< std::to_string(tstamp_us) <<std::endl;
-    std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<" sizeof(Event) = "<< std::to_string(sizeof(Event)) <<std::endl;
+    std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<std::endl;
 
-    //status = FERS_GetEventFromBoard(handle, &DataQualifier, &tstamp_us, &Event, &nb);
-    //std::cout<<"--status of FERS_GetEventFromBoard (0=OK) = "<< std::to_string(status)<<std::endl;
-    //std::cout<<"  --tstamp_us = "<< std::to_string(tstamp_us) <<std::endl;
-    //std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<" sizeof(Event) = "<< std::to_string(sizeof(Event)) <<std::endl;
-    
-    
+    if ( DataQualifier == DTQ_SPECT) {
+    SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
+    tstamp_us  = EventSpect->tstamp_us ;
+    uint64_t trigger_id = EventSpect->trigger_id;
+    uint64_t chmask     = EventSpect->chmask    ;
+    uint64_t qdmask     = EventSpect->qdmask    ;
+    uint16_t energyHG[nchan];
+    uint16_t energyLG[nchan];
+    uint32_t tstamp[nchan]  ;
+    uint16_t ToT[nchan]     ;
+    for (size_t i = 0; i<nchan; i++){
+        energyHG[i] = EventSpect->energyHG[i];
+        energyLG[i] = EventSpect->energyLG[i];
+        tstamp[i]   = EventSpect->tstamp[i]  ;
+        ToT[i]      = EventSpect->ToT[i]     ;
+	//hit.at(  i) = energyHG[i];
+        hit.at(2*i) = energyHG[i];
+        hit.at(2*i+1) = energyHG[i]>>8;
+    }
+    //uint32_t data_raw_0; // chans 0..31
+    //uint32_t data_raw_1; // chans 32..63
+    //for (int ii=0; ii < nchan/2; ++ii) {
+//	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_0, ii), &data_raw_0);
+//	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_1, ii), &data_raw_1);
+//	  hit.at( ii          ) = data_raw_0;
+//	  hit.at( ii + nchan/2) = data_raw_1;
+//    }
     //dump on console
-    //for(size_t i = 0; i < y_pixel; ++i) {
-    //        for(size_t n = 0; n < x_pixel; ++n){
-    //    	    std::cout<< (int)hit[n+i*x_pixel] <<"_";
-    //        }
-    //        std::cout<< "<<"<< std::endl;
-    //}
-    //std::cout<<std::endl;
-
+    std::cout<< "tstamp_us  "<< tstamp_us  <<std::endl;
+    std::cout<< "trigger_id "<< trigger_id <<std::endl;
+    //std::cout<< "chmask     "<< chmask     <<std::endl;
+    //std::cout<< "qdmask     "<< qdmask     <<std::endl;
+    
+    for(size_t i = 0; i < y_pixel; ++i) {
+            for(size_t n = 0; n < 2*x_pixel; ++n){
+        	    //std::cout<< (int)hit[n+i*x_pixel] <<"_";
+        	    std::cout<< (int)energyHG[n+i*x_pixel] <<"_";
+        	    //std::cout<< (int)energyLG[n+i*x_pixel] <<"_";
+        	    //std::cout<< (int)tstamp  [n+i*x_pixel] <<"_";
+        	    //std::cout<< (int)ToT     [n+i*x_pixel] <<"_";
+            }
+            std::cout<< "<<"<< std::endl;
+    }
+    std::cout<<std::endl;
+    }
 
 
     std::vector<uint8_t> data;
