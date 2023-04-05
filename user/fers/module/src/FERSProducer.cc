@@ -20,6 +20,7 @@
 #include <sys/file.h>
 #endif
 
+#include "FERSpackunpack.h"
 #include "configure.h" // for ConfigureFERS
 #include "JanusC.h"
 Config_t WDcfg;	
@@ -106,7 +107,6 @@ void FERSProducer::DoInitialise(){
 	  <<" ROmode "<<ROmode<<"  allocsize "<<allocsize<<std::endl;  
 
 }
-
 
 //----------DOC-MARK-----BEG*CONF-----DOC-MARK----------
 void FERSProducer::DoConfigure(){
