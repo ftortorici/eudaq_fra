@@ -232,7 +232,7 @@ void FERSProducer::RunLoop(){
     if(m_flag_tg)
       ev->SetTriggerN(trigger_n);
 
-    std::vector<uint8_t> hit(2*x_pixel*y_pixel, 0);
+    std::vector<uint8_t> hit(x_pixel*y_pixel, 0);
     hit[position(gen)] = signal(gen);
 
     int nchan = x_pixel*y_pixel;
@@ -267,8 +267,6 @@ void FERSProducer::RunLoop(){
       EventSpect->ToT[i]      = (uint16_t)   10 + i;
     }
     nb = sizeof(Event)/8;
-
-
 
 
     // event creation
