@@ -235,12 +235,6 @@ void FERSProducer::RunLoop(){
     std::vector<uint8_t> hit(2*x_pixel*y_pixel, 0);
     hit[position(gen)] = signal(gen);
 
-    // simulated data
-    for (int i=0; i<y_pixel; ++i)
-	   for(int n=0; n<2*x_pixel; ++n) 
-		  hit.at(n+i*x_pixel) = n+i*x_pixel;
-
-    // real data?
     int nchan = x_pixel*y_pixel;
     int DataQualifier = -1;
     double tstamp_us = -1;
@@ -248,66 +242,41 @@ void FERSProducer::RunLoop(){
     void *Event;
     int bindex = -1;
     int status = -1;
-   
-    std::cout<<"--FERS_ReadoutStatus (0=idle, 1=running) = " << FERS_ReadoutStatus <<std::endl;
 
+    // real data
+    // 
     status = FERS_GetEvent(vhandle, &bindex, &DataQualifier, &tstamp_us, &Event, &nb);
+    //
+    std::cout<<"--FERS_ReadoutStatus (0=idle, 1=running) = " << FERS_ReadoutStatus <<std::endl;
     std::cout<<"--status of FERS_GetEvent (0=No Data, 1=Good Data 2=Not Running, <0 = error) = "<< std::to_string(status)<<std::endl;
     std::cout<<"  --bindex = "<< std::to_string(bindex) <<" tstamp_us = "<< std::to_string(tstamp_us) <<std::endl;
     std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<std::endl;
 
-    if ( DataQualifier == DTQ_SPECT) {
+    // simulated spectroscopy data
+    // 
+    DataQualifier = DTQ_SPECT;
     SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
-    tstamp_us  = EventSpect->tstamp_us ;
-    uint64_t trigger_id = EventSpect->trigger_id;
-    uint64_t chmask     = EventSpect->chmask    ;
-    uint64_t qdmask     = EventSpect->qdmask    ;
-    uint16_t energyHG[nchan];
-    uint16_t energyLG[nchan];
-    uint32_t tstamp[nchan]  ;
-    uint16_t ToT[nchan]     ;
-    for (size_t i = 0; i<nchan; i++){
-        energyHG[i] = EventSpect->energyHG[i];
-        energyLG[i] = EventSpect->energyLG[i];
-        tstamp[i]   = EventSpect->tstamp[i]  ;
-        ToT[i]      = EventSpect->ToT[i]     ;
-	//hit.at(  i) = energyHG[i];
-        hit.at(2*i) = energyHG[i];
-        hit.at(2*i+1) = energyHG[i]>>8;
+    EventSpect->tstamp_us  = (double)  1000;
+    EventSpect->trigger_id = (uint64_t) 100;
+    EventSpect->chmask     = (uint64_t) 120;
+    EventSpect->qdmask     = (uint64_t) 130;
+    for(int i=0; i<nchan; i++){
+      EventSpect->energyHG[i] = (uint16_t)  200 + i;
+      EventSpect->energyLG[i] = (uint16_t)  100 + i;
+      EventSpect->tstamp[i]   = (uint32_t) 1000 + i;
+      EventSpect->ToT[i]      = (uint16_t)   10 + i;
     }
-    //uint32_t data_raw_0; // chans 0..31
-    //uint32_t data_raw_1; // chans 32..63
-    //for (int ii=0; ii < nchan/2; ++ii) {
-//	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_0, ii), &data_raw_0);
-//	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_1, ii), &data_raw_1);
-//	  hit.at( ii          ) = data_raw_0;
-//	  hit.at( ii + nchan/2) = data_raw_1;
-//    }
-    //dump on console
-    std::cout<< "tstamp_us  "<< tstamp_us  <<std::endl;
-    std::cout<< "trigger_id "<< trigger_id <<std::endl;
-    //std::cout<< "chmask     "<< chmask     <<std::endl;
-    //std::cout<< "qdmask     "<< qdmask     <<std::endl;
-    
-    for(size_t i = 0; i < y_pixel; ++i) {
-            for(size_t n = 0; n < 2*x_pixel; ++n){
-        	    //std::cout<< (int)hit[n+i*x_pixel] <<"_";
-        	    std::cout<< (int)energyHG[n+i*x_pixel] <<"_";
-        	    //std::cout<< (int)energyLG[n+i*x_pixel] <<"_";
-        	    //std::cout<< (int)tstamp  [n+i*x_pixel] <<"_";
-        	    //std::cout<< (int)ToT     [n+i*x_pixel] <<"_";
-            }
-            std::cout<< "<<"<< std::endl;
-    }
-    std::cout<<std::endl;
-    }
+    nb = sizeof(Event)/8;
 
 
+
+
+    // event creation
     std::vector<uint8_t> data;
     data.push_back(x_pixel);
     data.push_back(y_pixel);
-
-    // test metadata
+    //
+    // metadata
     //
     // convert fers ip address to numbers
     char ip_address[20];
@@ -338,7 +307,55 @@ void FERSProducer::RunLoop(){
     // number of byte of event raw data
     data.push_back((uint8_t)nb);
 
-    data.insert(data.end(), hit.begin(), hit.end());
+    //data.insert(data.end(), hit.begin(), hit.end());
+
+    if ( DataQualifier == DTQ_SPECT) {
+      FERSpackevent(Event, DataQualifier, &data);
+      std::cout<<"Packed spectroscopy event"<<std::endl; 
+//      SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
+//      tstamp_us  = EventSpect->tstamp_us ;
+//      uint64_t trigger_id = EventSpect->trigger_id;
+//      uint64_t chmask     = EventSpect->chmask    ;
+//      uint64_t qdmask     = EventSpect->qdmask    ;
+//      uint16_t energyHG[nchan];
+//      uint16_t energyLG[nchan];
+//      uint32_t tstamp[nchan]  ;
+//      uint16_t ToT[nchan]     ;
+//      for (size_t i = 0; i<nchan; i++){
+//        energyHG[i] = EventSpect->energyHG[i];
+//        energyLG[i] = EventSpect->energyLG[i];
+//        tstamp[i]   = EventSpect->tstamp[i]  ;
+//        ToT[i]      = EventSpect->ToT[i]     ;
+//        //hit.at(  i) = energyHG[i];
+//        hit.at(2*i) = energyHG[i];
+//        hit.at(2*i+1) = energyHG[i]>>8;
+//      }
+//      //uint32_t data_raw_0; // chans 0..31
+//      //uint32_t data_raw_1; // chans 32..63
+//      //for (int ii=0; ii < nchan/2; ++ii) {
+//      //	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_0, ii), &data_raw_0);
+//      //	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_1, ii), &data_raw_1);
+//      //	  hit.at( ii          ) = data_raw_0;
+//      //	  hit.at( ii + nchan/2) = data_raw_1;
+//      //    }
+//      //dump on console
+//      std::cout<< "tstamp_us  "<< tstamp_us  <<std::endl;
+//      std::cout<< "trigger_id "<< trigger_id <<std::endl;
+//      //std::cout<< "chmask     "<< chmask     <<std::endl;
+//      //std::cout<< "qdmask     "<< qdmask     <<std::endl;
+//
+//      for(size_t i = 0; i < y_pixel; ++i) {
+//        for(size_t n = 0; n < 2*x_pixel; ++n){
+//          //std::cout<< (int)hit[n+i*x_pixel] <<"_";
+//          std::cout<< (int)energyHG[n+i*x_pixel] <<"_";
+//          //std::cout<< (int)energyLG[n+i*x_pixel] <<"_";
+//          //std::cout<< (int)tstamp  [n+i*x_pixel] <<"_";
+//          //std::cout<< (int)ToT     [n+i*x_pixel] <<"_";
+//        }
+//        std::cout<< "<<"<< std::endl;
+//      }
+//      std::cout<<std::endl;
+    }
 
 
     uint32_t block_id = m_plane_id;
