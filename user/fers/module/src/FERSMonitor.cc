@@ -140,9 +140,9 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			uint8_t dataq= block[8];
 			uint8_t nb   = block[9];
 
-			std::vector<uint8_t> hitraw(block.begin()+10, block.end());
-			if(hitraw.size() != 2*x_pixel*y_pixel)
-							EUDAQ_THROW("Unknown data");
+			std::vector<uint8_t> data(block.begin()+10, block.end());
+			//if(data.size() != 2*x_pixel*y_pixel)
+			//				EUDAQ_THROW("Unknown data");
 			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS @ ip "
 				+ std::to_string(uip0) +"."
 				+ std::to_string(uip1) +"."
@@ -156,11 +156,24 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				+" #bytes = "+std::to_string(nb);
 			EUDAQ_WARN(printme);
 
-			std::vector<uint16_t> hit;
-			for (int i = 0; i<hitraw.size()/2; i++)
-				hit.push_back(hitraw.at( 2*i ) + hitraw.at(2*i+1)*256);
+      int nchan = 64;
+      void *Event;
+      FERSunpackevent(Event, dataq, &data);
 
-			// does not read correctly
+			std::vector<uint16_t> hit; // energyHG etc
+      if ( dataq == DTQ_SPECT )
+      {
+        SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
+        for (int i=0; i<nchan; i++)
+        {
+          hit.push_back( EventSpect->energyHG[i] );
+        }
+      }
+
+			//for (int i = 0; i<data.size()/2; i++)
+			//	hit.push_back(data.at( 2*i ) + data.at(2*i+1)*256);
+
+			// just for fun and check connection
 			HV_Get_Vmon( handle, &vmon);
 			HV_Get_Vmon( handle, &vmon);
 			HV_Get_Imon( handle, &imon);
@@ -171,7 +184,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			for(size_t i = 0; i < y_pixel; ++i) {
 			printme="";
 				//for(size_t n = 0; n < 2*x_pixel; ++n){
-					//printme += std::to_string(hitraw[n+i*x_pixel]) +" ";
+					//printme += std::to_string(data[n+i*x_pixel]) +" ";
 				for(size_t n = 0; n < x_pixel; ++n){
 					printme += std::to_string(hit[n+i*x_pixel]) +" ";
 				};
