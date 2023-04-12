@@ -21,9 +21,27 @@ uint64_t FERSunpack64(int index, std::vector<uint8_t> vec);
 //  std::printf("FERSunpack : num32r = %x\n", num32r);
 //  std::printf("FERSunpack : num16r = %x\n", num16r);
 
+//////////////////////////
+void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
+void FERSunpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
+//////////////////////////
+
+void FERSpack_listevent(void* Event, std::vector<uint8_t> *vec);
+void FERSunpack_listevent(void* Event, std::vector<uint8_t> *vec);
+
+void FERSpack_tspectevent(void* Event, std::vector<uint8_t> *vec);
+void FERSunpack_tspectevent(void* Event, std::vector<uint8_t> *vec);
+
+void FERSpack_countevent(void* Event, std::vector<uint8_t> *vec);
+void FERSunpack_countevent(void* Event, std::vector<uint8_t> *vec);
+
+void FERSpack_waveevent(void* Event, std::vector<uint8_t> *vec);
+void FERSunpack_waveevent(void* Event, std::vector<uint8_t> *vec);
+
+void FERSpack_testevent(void* Event, std::vector<uint8_t> *vec);
+void FERSunpack_testevent(void* Event, std::vector<uint8_t> *vec);
+
 void FERSpack_spectevent(void* Event, std::vector<uint8_t> *vec);
 void FERSunpack_spectevent(void* Event, std::vector<uint8_t> *vec);
 
-void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
-void FERSunpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
 #endif
