@@ -112,92 +112,120 @@ void FERSMonitor::DoTerminate(){
 }
 
 void FERSMonitor::DoReceive(eudaq::EventSP ev){
-	if(m_en_print) {
+	if(m_en_print) 
 		ev->Print(std::cout);
 
-		float vmon, imon;
+	float vmon, imon;
 
-		// dump su log
-		std::string printme="";
-		size_t nblocks= ev->NumBlocks();
-		//EUDAQ_WARN("number of blocks: "+std::to_string(nblocks));
-		auto block_n_list = ev->GetBlockNumList();
-		
-		for(auto &block_n: block_n_list){
-			std::vector<uint8_t> block = ev->GetBlock(block_n);
+	// dump su log
+	std::string printme="";
+	size_t nblocks= ev->NumBlocks();
+	EUDAQ_WARN("number of blocks: "+std::to_string(nblocks));
+	auto block_n_list = ev->GetBlockNumList();
 
-			if(block.size() < 2)
-							EUDAQ_THROW("Unknown data");
-			uint8_t x_pixel = block[0];
-			uint8_t y_pixel = block[1];
+	for(auto &block_n: block_n_list){
+		std::vector<uint8_t> block = ev->GetBlock(block_n);
 
-			uint8_t uip0 = block[2];
-			uint8_t uip1 = block[3];
-			uint8_t uip2 = block[4];
-			uint8_t uip3 = block[5];
-			uint8_t sernum=block[6];
-			uint8_t handle=block[7];
-			uint8_t dataq= block[8];
-			uint8_t nb   = block[9];
+		if(block.size() < 2)
+			EUDAQ_THROW("Unknown data");
+		uint8_t x_pixel = block[0];
+		uint8_t y_pixel = block[1];
 
-			std::vector<uint8_t> data(block.begin()+10, block.end());
-			//if(data.size() != 2*x_pixel*y_pixel)
-			//				EUDAQ_THROW("Unknown data");
-			printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS @ ip "
-				+ std::to_string(uip0) +"."
-				+ std::to_string(uip1) +"."
-				+ std::to_string(uip2) +"."
-				+ std::to_string(uip3)
-			       	+" serial# "+ std::to_string(sernum);
-			EUDAQ_WARN(printme);
+		uint8_t uip0 = block[2];
+		uint8_t uip1 = block[3];
+		uint8_t uip2 = block[4];
+		uint8_t uip3 = block[5];
+		uint8_t sernum=block[6];
+		uint8_t handle=block[7];
+		uint8_t dataq= block[8];
+		uint8_t nb   = block[9];
 
-			printme = "handle = "+std::to_string(handle)
-				+" data qualifier = "+std::to_string(dataq)
-				+" #bytes = "+std::to_string(nb);
-			EUDAQ_WARN(printme);
+		std::vector<uint8_t> data(block.begin()+10, block.end());
 
-      int nchan = 64;
-      void *Event;
-      FERSunpackevent(Event, dataq, &data);
+		printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS @ ip "
+			+ std::to_string(uip0) +"."
+			+ std::to_string(uip1) +"."
+			+ std::to_string(uip2) +"."
+			+ std::to_string(uip3)
+			+" serial# "+ std::to_string(sernum);
+		EUDAQ_WARN(printme);
 
-			std::vector<uint16_t> hit; // energyHG etc
-      if ( dataq == DTQ_SPECT )
-      {
-        SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
-        for (int i=0; i<nchan; i++)
-        {
-          hit.push_back( EventSpect->energyHG[i] );
-        }
-      }
+		printme = "handle = "+std::to_string(handle)
+			+" data qualifier = "+std::to_string(dataq)
+			+" #bytes = "+std::to_string(nb);
+		EUDAQ_WARN(printme);
 
-			//for (int i = 0; i<data.size()/2; i++)
-			//	hit.push_back(data.at( 2*i ) + data.at(2*i+1)*256);
+		int nchan = 64;
+		// all possible struct vars
+		double   tstamp_us                      ;
+		uint64_t trigger_id                     ;
+		uint64_t chmask                         ;
+		uint64_t qdmask                         ;
+		uint16_t energyHG[nchan]                ;
+		uint16_t energyLG[nchan]                ;
+		uint32_t tstamp[nchan]                  ;
+		uint16_t ToT[nchan]                     ;
+		uint32_t counts[nchan]                 ;
+		uint32_t t_or_counts                    ;
+		uint32_t q_or_counts                    ;
+		uint16_t ns                             ;
+		uint16_t wave_hg[MAX_WAVEFORM_LENGTH]   ;
+		uint16_t wave_lg[MAX_WAVEFORM_LENGTH]   ;
+		uint8_t  dig_probes[MAX_WAVEFORM_LENGTH];
+		uint16_t nhits                          ;
+		uint8_t  channel[MAX_LIST_SIZE]         ;
+		uint16_t nwords                         ;
+		uint32_t test_data[MAX_TEST_NWORDS]     ;
 
-			// just for fun and check connection
-			HV_Get_Vmon( handle, &vmon);
-			HV_Get_Vmon( handle, &vmon);
-			HV_Get_Imon( handle, &imon);
-			HV_Get_Imon( handle, &imon);
-			EUDAQ_WARN("Current Vmon = " + std::to_string(vmon) + " V, Imon = " + std::to_string(imon) +" ??A");
+		std::vector<uint16_t> hit; // fill it with energyHG or whatever
+		std::string hitname=""; // display name for hit
 
-			EUDAQ_WARN("Monitor > ---------- start dumping");
-			for(size_t i = 0; i < y_pixel; ++i) {
-			printme="";
-				//for(size_t n = 0; n < 2*x_pixel; ++n){
-					//printme += std::to_string(data[n+i*x_pixel]) +" ";
-				for(size_t n = 0; n < x_pixel; ++n){
-					printme += std::to_string(hit[n+i*x_pixel]) +" ";
-				};
-				EUDAQ_WARN(printme);
+		EUDAQ_WARN("Monitor > ---------- start dumping");
+		if ( dataq == DTQ_SPECT ){
+			EUDAQ_WARN("TRYING to decode spect event");
+			// fill the relevant vars
+			SpectEvent_t tmpEvent = FERSunpack_spectevent(&data);
+			tstamp_us      = tmpEvent.tstamp_us ;
+			trigger_id     = tmpEvent.trigger_id;
+			chmask         = tmpEvent.chmask    ;
+			qdmask         = tmpEvent.qdmask    ;
+			//tstamp[nchan]  ;
+			//ToT[nchan]     ;
+			for (int i=0; i<nchan; i++)
+			{
+				energyHG[i] = tmpEvent.energyHG[i];
+				energyLG[i] = tmpEvent.energyLG[i];
+				//tstamp[i]   = tmpEvent.tstamp[i]  ;
+				//ToT[i]      = tmpEvent.ToT[i]     ;
+
+				// hit will be dumped below
+				hit.push_back( energyHG[i] );
+				hitname="energyHG";
 			}
-			//EUDAQ_WARN(printme);
-
+			// dump the scalar ones
+			EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
+			EUDAQ_WARN("trigger_id: "+std::to_string(trigger_id));
+			EUDAQ_WARN("chmask    : "+std::to_string(chmask    ));
+			EUDAQ_WARN("qdmask    : "+std::to_string(qdmask    ));
 		}
-		EUDAQ_WARN("Monitor > ---------- end dumping");
-		
 
+
+		// dumping of hit
+		EUDAQ_WARN(hitname);
+		for(size_t i = 0; i < y_pixel; ++i) {
+			printme="";
+			for(size_t n = 0; n < x_pixel; ++n){
+				printme += std::to_string(hit[n+i*x_pixel]) +" ";
+			};
+			EUDAQ_WARN(printme);
+		}
+		//EUDAQ_WARN(printme);
 
 	}
+	EUDAQ_WARN("Monitor > ---------- end dumping");
+
+
+
 	if(m_en_std_converter){
 		auto stdev = std::dynamic_pointer_cast<eudaq::StandardEvent>(ev);
 		if(!stdev){
@@ -212,3 +240,4 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		}
 	}
 }
+

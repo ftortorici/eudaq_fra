@@ -245,34 +245,41 @@ void FERSProducer::RunLoop(){
 
     // real data
     // 
-    status = FERS_GetEvent(vhandle, &bindex, &DataQualifier, &tstamp_us, &Event, &nb);
-    //
-    std::cout<<"--FERS_ReadoutStatus (0=idle, 1=running) = " << FERS_ReadoutStatus <<std::endl;
-    std::cout<<"--status of FERS_GetEvent (0=No Data, 1=Good Data 2=Not Running, <0 = error) = "<< std::to_string(status)<<std::endl;
-    std::cout<<"  --bindex = "<< std::to_string(bindex) <<" tstamp_us = "<< std::to_string(tstamp_us) <<std::endl;
-    std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<std::endl;
+    //status = FERS_GetEvent(vhandle, &bindex, &DataQualifier, &tstamp_us, &Event, &nb);
+    ////
+    //std::cout<<"--FERS_ReadoutStatus (0=idle, 1=running) = " << FERS_ReadoutStatus <<std::endl;
+    //std::cout<<"--status of FERS_GetEvent (0=No Data, 1=Good Data 2=Not Running, <0 = error) = "<< std::to_string(status)<<std::endl;
+    //std::cout<<"  --bindex = "<< std::to_string(bindex) <<" tstamp_us = "<< std::to_string(tstamp_us) <<std::endl;
+    //std::cout<<"  --DataQualifier = "<< std::to_string(DataQualifier) +" nb = "<< std::to_string(nb) <<std::endl;
 
     // simulated spectroscopy data
     // 
+    std::cout<<"TRYING to CREATE an HARDCODED spectroscopy event"<<std::endl;
     DataQualifier = DTQ_SPECT;
-    SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
-    EventSpect->tstamp_us  = (double)  1000;
-    EventSpect->trigger_id = (uint64_t) 100;
-    EventSpect->chmask     = (uint64_t) 120;
-    EventSpect->qdmask     = (uint64_t) 130;
-    for(int i=0; i<nchan; i++){
-      EventSpect->energyHG[i] = (uint16_t)  200 + i;
-      EventSpect->energyLG[i] = (uint16_t)  100 + i;
-      EventSpect->tstamp[i]   = (uint32_t) 1000 + i;
-      EventSpect->ToT[i]      = (uint16_t)   10 + i;
+    SpectEvent_t EventSpect;// = (SpectEvent_t*)Event;
+    EventSpect.tstamp_us  = (double)(  1000);
+    EventSpect.trigger_id = (uint64_t) 100;
+    EventSpect.chmask     = (uint64_t) 120;
+    EventSpect.qdmask     = (uint64_t) 130;
+    for(uint16_t i=0; i<nchan; i++){
+      EventSpect.energyHG[i] = (uint16_t)( 200 + i);
+      EventSpect.energyLG[i] = (uint16_t)( 100 + i);
+      EventSpect.tstamp[i]   = (uint32_t)(1000 + i); // used in TSPEC mode only
+      EventSpect.ToT[i]      = (uint16_t)(  10 + i); // used in TSPEC mode only
     }
-    nb = sizeof(Event)/8;
+    Event =&EventSpect;
+    nb = sizeof(EventSpect);
+    std::cout<<"****** event structure filled: "<< sizeof(EventSpect) <<" bytes, pointer: "<< Event<<std::endl;
+
+
 
 
     // event creation
+    int expected_size_bytes =0;
+    int size8 = sizeof(uint8_t);
     std::vector<uint8_t> data;
-    data.push_back(x_pixel);
-    data.push_back(y_pixel);
+    data.push_back(x_pixel); expected_size_bytes+=size8;
+    data.push_back(y_pixel); expected_size_bytes+=size8;  
     //
     // metadata
     //
@@ -285,7 +292,7 @@ void FERSProducer::RunLoop(){
     for (int i=0; i<20; i++){
 	    c = ip_address[i];
 	    if ( c == '.' ) {
-		    data.push_back( ip_temp );
+		    data.push_back( ip_temp ); expected_size_bytes+=size8;
 		    ip_temp = 0;
 	    } else {
 		    if ( (c >= '0') && ( c <= '9') ) {
@@ -293,23 +300,25 @@ void FERSProducer::RunLoop(){
 		    }
 	    }
     }
-    data.push_back( ip_temp );
+    data.push_back( ip_temp ); expected_size_bytes+=size8;
     // serial number
     int sernum=0;
     HV_Get_SerNum(handle, &sernum);
-    data.push_back((uint8_t)sernum);
+    data.push_back((uint8_t)sernum); expected_size_bytes+=size8;
     //handle
-    data.push_back((uint8_t)handle);
+    data.push_back((uint8_t)handle); expected_size_bytes+=size8;
     // data qualifier
-    data.push_back((uint8_t)DataQualifier);
+    data.push_back((uint8_t)DataQualifier); expected_size_bytes+=size8;
     // number of byte of event raw data
-    data.push_back((uint8_t)nb);
+    data.push_back((uint8_t)nb); expected_size_bytes+=size8;
 
     //data.insert(data.end(), hit.begin(), hit.end());
 
     if ( DataQualifier == DTQ_SPECT) {
+      //std::cout<<"TRYING to pack a spectroscopy event. Number of elements in header (expected "<< expected_size_bytes<<"): "<<data.size()<<std::endl;
       FERSpackevent(Event, DataQualifier, &data);
-      std::cout<<"Packed spectroscopy event"<<std::endl; 
+      //std::cout<<"Packed spectroscopy event. Size of data (expected "<< expected_size_bytes + nb<<"): "<<data.size()<<" elements"<<std::endl; 
+
 //      SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
 //      tstamp_us  = EventSpect->tstamp_us ;
 //      uint64_t trigger_id = EventSpect->trigger_id;
@@ -356,11 +365,15 @@ void FERSProducer::RunLoop(){
     }
 
 
-    uint32_t block_id = m_plane_id;
-    ev->AddBlock(block_id, data);
-    SendEvent(std::move(ev));
-    trigger_n++;
+    //if (DataQualifier > 0) // there is an event, send it
+    //{
+	    uint32_t block_id = m_plane_id;
+	    ev->AddBlock(block_id, data);
+	    SendEvent(std::move(ev));
+	    trigger_n++;
+    //}
     std::this_thread::sleep_until(tp_end_of_busy);
   }
 }
 //----------DOC-MARK-----END*IMP-----DOC-MARK----------
+
