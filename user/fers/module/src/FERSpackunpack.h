@@ -22,28 +22,28 @@ uint64_t FERSunpack64(int index, std::vector<uint8_t> vec);
 //  std::printf("FERSunpack : num16r = %x\n", num16r);
 
 //////////////////////////
+// use this to pack every kind of event
 void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
-//void FERSunpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
-//void FERSunpackevent(int dataqualifier, std::vector<uint8_t> *vec);
 //////////////////////////
 
+// for each kind of event: the "pack" is used by FERSpackevent,
+// whereas the "unpack" is meant to be used individually
 void FERSpack_spectevent(void* Event, std::vector<uint8_t> *vec);
 SpectEvent_t FERSunpack_spectevent(std::vector<uint8_t> *vec);
-//void FERSunpack_spectevent(void* Event, std::vector<uint8_t> *vec);
 
 void FERSpack_listevent(void* Event, std::vector<uint8_t> *vec);
-void FERSunpack_listevent(void* Event, std::vector<uint8_t> *vec);
+ListEvent_t FERSunpack_listevent(std::vector<uint8_t> *vec);
 
 void FERSpack_tspectevent(void* Event, std::vector<uint8_t> *vec);
-void FERSunpack_tspectevent(void* Event, std::vector<uint8_t> *vec);
+SpectEvent_t FERSunpack_tspectevent(std::vector<uint8_t> *vec);
 
 void FERSpack_countevent(void* Event, std::vector<uint8_t> *vec);
-void FERSunpack_countevent(void* Event, std::vector<uint8_t> *vec);
+CountingEvent_t FERSunpack_countevent(std::vector<uint8_t> *vec);
 
 void FERSpack_waveevent(void* Event, std::vector<uint8_t> *vec);
-void FERSunpack_waveevent(void* Event, std::vector<uint8_t> *vec);
+WaveEvent_t FERSunpack_waveevent(std::vector<uint8_t> *vec);
 
 void FERSpack_testevent(void* Event, std::vector<uint8_t> *vec);
-void FERSunpack_testevent(void* Event, std::vector<uint8_t> *vec);
+TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec);
 
 #endif

@@ -272,107 +272,58 @@ void FERSProducer::RunLoop(){
     std::cout<<"****** event structure filled: "<< sizeof(EventSpect) <<" bytes, pointer: "<< Event<<std::endl;
 
 
-
-
     // event creation
-    int expected_size_bytes =0;
-    int size8 = sizeof(uint8_t);
-    std::vector<uint8_t> data;
-    data.push_back(x_pixel); expected_size_bytes+=size8;
-    data.push_back(y_pixel); expected_size_bytes+=size8;  
-    //
-    // metadata
-    //
-    // convert fers ip address to numbers
-    char ip_address[20];
-    uint8_t ip_temp = 0;
-    char c;
-    strcpy(ip_address, fers_ip_address.c_str());
-    std::cout<<"*-*-* fers ip is "<< ip_address << std::endl;
-    for (int i=0; i<20; i++){
-	    c = ip_address[i];
-	    if ( c == '.' ) {
-		    data.push_back( ip_temp ); expected_size_bytes+=size8;
-		    ip_temp = 0;
-	    } else {
-		    if ( (c >= '0') && ( c <= '9') ) {
-			    ip_temp = 10*ip_temp + (int)c - '0';
+    if ( DataQualifier >0 ) {
+	    int expected_size_bytes =0;
+	    int size8 = sizeof(uint8_t);
+	    std::vector<uint8_t> data;
+	    data.push_back(x_pixel); expected_size_bytes+=size8;
+	    data.push_back(y_pixel); expected_size_bytes+=size8;  
+	    //
+	    // metadata
+	    //
+	    // convert fers ip address to numbers
+	    char ip_address[20];
+	    uint8_t ip_temp = 0;
+	    char c;
+	    strcpy(ip_address, fers_ip_address.c_str());
+	    std::cout<<"*-*-* fers ip is "<< ip_address << std::endl;
+	    for (int i=0; i<20; i++){
+		    c = ip_address[i];
+		    if ( c == '.' ) {
+			    data.push_back( ip_temp ); expected_size_bytes+=size8;
+			    ip_temp = 0;
+		    } else {
+			    if ( (c >= '0') && ( c <= '9') ) {
+				    ip_temp = 10*ip_temp + (int)c - '0';
+			    }
 		    }
 	    }
-    }
-    data.push_back( ip_temp ); expected_size_bytes+=size8;
-    // serial number
-    int sernum=0;
-    HV_Get_SerNum(handle, &sernum);
-    data.push_back((uint8_t)sernum); expected_size_bytes+=size8;
-    //handle
-    data.push_back((uint8_t)handle); expected_size_bytes+=size8;
-    // data qualifier
-    data.push_back((uint8_t)DataQualifier); expected_size_bytes+=size8;
-    // number of byte of event raw data
-    data.push_back((uint8_t)nb); expected_size_bytes+=size8;
+	    data.push_back( ip_temp ); expected_size_bytes+=size8;
+	    // serial number
+	    int sernum=0;
+	    HV_Get_SerNum(handle, &sernum);
+	    data.push_back((uint8_t)sernum); expected_size_bytes+=size8;
+	    //handle
+	    data.push_back((uint8_t)handle); expected_size_bytes+=size8;
+	    // data qualifier
+	    data.push_back((uint8_t)DataQualifier); expected_size_bytes+=size8;
+	    // number of byte of event raw data
+	    data.push_back((uint8_t)nb); expected_size_bytes+=size8;
 
-    //data.insert(data.end(), hit.begin(), hit.end());
+	    //data.insert(data.end(), hit.begin(), hit.end());
 
-    if ( DataQualifier == DTQ_SPECT) {
-      //std::cout<<"TRYING to pack a spectroscopy event. Number of elements in header (expected "<< expected_size_bytes<<"): "<<data.size()<<std::endl;
-      FERSpackevent(Event, DataQualifier, &data);
-      //std::cout<<"Packed spectroscopy event. Size of data (expected "<< expected_size_bytes + nb<<"): "<<data.size()<<" elements"<<std::endl; 
-
-//      SpectEvent_t *EventSpect = (SpectEvent_t*)Event;
-//      tstamp_us  = EventSpect->tstamp_us ;
-//      uint64_t trigger_id = EventSpect->trigger_id;
-//      uint64_t chmask     = EventSpect->chmask    ;
-//      uint64_t qdmask     = EventSpect->qdmask    ;
-//      uint16_t energyHG[nchan];
-//      uint16_t energyLG[nchan];
-//      uint32_t tstamp[nchan]  ;
-//      uint16_t ToT[nchan]     ;
-//      for (size_t i = 0; i<nchan; i++){
-//        energyHG[i] = EventSpect->energyHG[i];
-//        energyLG[i] = EventSpect->energyLG[i];
-//        tstamp[i]   = EventSpect->tstamp[i]  ;
-//        ToT[i]      = EventSpect->ToT[i]     ;
-//        //hit.at(  i) = energyHG[i];
-//        hit.at(2*i) = energyHG[i];
-//        hit.at(2*i+1) = energyHG[i]>>8;
-//      }
-//      //uint32_t data_raw_0; // chans 0..31
-//      //uint32_t data_raw_1; // chans 32..63
-//      //for (int ii=0; ii < nchan/2; ++ii) {
-//      //	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_0, ii), &data_raw_0);
-//      //	  FERS_ReadRegister(handle, INDIV_ADDR(a_channel_mask_1, ii), &data_raw_1);
-//      //	  hit.at( ii          ) = data_raw_0;
-//      //	  hit.at( ii + nchan/2) = data_raw_1;
-//      //    }
-//      //dump on console
-//      std::cout<< "tstamp_us  "<< tstamp_us  <<std::endl;
-//      std::cout<< "trigger_id "<< trigger_id <<std::endl;
-//      //std::cout<< "chmask     "<< chmask     <<std::endl;
-//      //std::cout<< "qdmask     "<< qdmask     <<std::endl;
-//
-//      for(size_t i = 0; i < y_pixel; ++i) {
-//        for(size_t n = 0; n < 2*x_pixel; ++n){
-//          //std::cout<< (int)hit[n+i*x_pixel] <<"_";
-//          std::cout<< (int)energyHG[n+i*x_pixel] <<"_";
-//          //std::cout<< (int)energyLG[n+i*x_pixel] <<"_";
-//          //std::cout<< (int)tstamp  [n+i*x_pixel] <<"_";
-//          //std::cout<< (int)ToT     [n+i*x_pixel] <<"_";
-//        }
-//        std::cout<< "<<"<< std::endl;
-//      }
-//      std::cout<<std::endl;
-    }
+	    //std::cout<<"TRYING to pack a spectroscopy event. Number of elements in header (expected "<< expected_size_bytes<<"): "<<data.size()<<std::endl;
+	    FERSpackevent(Event, DataQualifier, &data);
+	    //std::cout<<"Packed spectroscopy event. Size of data (expected "<< expected_size_bytes + nb<<"): "<<data.size()<<" elements"<<std::endl; 
 
 
-    //if (DataQualifier > 0) // there is an event, send it
-    //{
 	    uint32_t block_id = m_plane_id;
 	    ev->AddBlock(block_id, data);
 	    SendEvent(std::move(ev));
 	    trigger_n++;
-    //}
-    std::this_thread::sleep_until(tp_end_of_busy);
+	    std::this_thread::sleep_until(tp_end_of_busy);
+    }
   }
 }
 //----------DOC-MARK-----END*IMP-----DOC-MARK----------

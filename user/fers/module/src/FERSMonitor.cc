@@ -165,7 +165,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		uint16_t energyLG[nchan]                ;
 		uint32_t tstamp[nchan]                  ;
 		uint16_t ToT[nchan]                     ;
-		uint32_t counts[nchan]                 ;
+		uint32_t counts[nchan]                  ;
 		uint32_t t_or_counts                    ;
 		uint32_t q_or_counts                    ;
 		uint16_t ns                             ;
@@ -181,32 +181,53 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		std::string hitname=""; // display name for hit
 
 		EUDAQ_WARN("Monitor > ---------- start dumping");
-		if ( dataq == DTQ_SPECT ){
-			EUDAQ_WARN("TRYING to decode spect event");
-			// fill the relevant vars
-			SpectEvent_t tmpEvent = FERSunpack_spectevent(&data);
-			tstamp_us      = tmpEvent.tstamp_us ;
-			trigger_id     = tmpEvent.trigger_id;
-			chmask         = tmpEvent.chmask    ;
-			qdmask         = tmpEvent.qdmask    ;
-			//tstamp[nchan]  ;
-			//ToT[nchan]     ;
-			for (int i=0; i<nchan; i++)
-			{
-				energyHG[i] = tmpEvent.energyHG[i];
-				energyLG[i] = tmpEvent.energyLG[i];
-				//tstamp[i]   = tmpEvent.tstamp[i]  ;
-				//ToT[i]      = tmpEvent.ToT[i]     ;
+		switch ( dataq ) {
+			case DTQ_SPECT:
+				EUDAQ_WARN("Trying to decode SPECT event");
+				// fill the relevant vars
+				SpectEvent_t tmpEvent = FERSunpack_spectevent(&data);
+				tstamp_us      = tmpEvent.tstamp_us ;
+				trigger_id     = tmpEvent.trigger_id;
+				chmask         = tmpEvent.chmask    ;
+				qdmask         = tmpEvent.qdmask    ;
+				//tstamp[nchan]  ;
+				//ToT[nchan]     ;
+				for (int i=0; i<nchan; i++)
+				{
+					energyHG[i] = tmpEvent.energyHG[i];
+					energyLG[i] = tmpEvent.energyLG[i];
+					//tstamp[i]   = tmpEvent.tstamp[i]  ;
+					//ToT[i]      = tmpEvent.ToT[i]     ;
 
-				// hit will be dumped below
-				hit.push_back( energyHG[i] );
-				hitname="energyHG";
-			}
-			// dump the scalar ones
-			EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
-			EUDAQ_WARN("trigger_id: "+std::to_string(trigger_id));
-			EUDAQ_WARN("chmask    : "+std::to_string(chmask    ));
-			EUDAQ_WARN("qdmask    : "+std::to_string(qdmask    ));
+					// hit will be dumped below
+					hit.push_back( energyHG[i] );
+					hitname="energyHG";
+				}
+				// dump the scalar ones
+				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
+				EUDAQ_WARN("trigger_id: "+std::to_string(trigger_id));
+				EUDAQ_WARN("chmask    : "+std::to_string(chmask    ));
+				EUDAQ_WARN("qdmask    : "+std::to_string(qdmask    ));
+				break;
+			//case DTQ_TIMING:
+			//	EUDAQ_WARN("Trying to decode TIMING event");
+			//	ListEvent_t tmpEvent = FERSunpack_listevent(&data);
+			//	break;
+			//case DTQ_COUNT:
+			//	EUDAQ_WARN("Trying to decode COUNTING event");
+			//	CountingEvent_t tmpEvent = FERSunpack_countevent(&data);
+			//	break;
+			//case DTQ_WAVE:
+			//	EUDAQ_WARN("Trying to decode WAVE event");
+			// 	WaveEvent_t tmpEvent = FERSunpack_waveevent(&data);
+			//	break;
+			//case DTQ_TSPECT:
+			//	EUDAQ_WARN("Trying to decode TSPECT event");
+			//	SpectEvent_t tmpEvent = FERSpack_tspectevent(&data);
+			//	break;
+			//case DTQ_TEST:
+			//	EUDAQ_WARN("Trying to decode TEST event");
+			//	TestEvent_t tmpEvent = FERSunpack_testevent(&data);
 		}
 
 
