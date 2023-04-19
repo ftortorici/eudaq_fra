@@ -56,6 +56,10 @@ private:
   float fers_hv_imax;
   int fers_acq_mode;
   int vhandle[FERSLIB_MAX_NBRD];
+  // staircase params
+  uint8_t stair_do;
+  uint16_t stair_start, stair_stop, stair_step, stair_shapingt;
+  float stair_dwell_time;
 };
 //----------DOC-MARK-----END*DEC-----DOC-MARK----------
 //----------DOC-MARK-----BEG*CON-----DOC-MARK----------
@@ -154,6 +158,13 @@ void FERSProducer::DoConfigure(){
     EUDAQ_THROW("HV bias NOT set");
   }
 
+  stair_do = (bool)(conf->Get("stair_do",0));
+  stair_shapingt = (uint16_t)(conf->Get("stair_shapingt",0));
+  stair_start = (uint16_t)(conf->Get("stair_start",0));
+  stair_stop  = (uint16_t)(conf->Get("stair_stop",0));
+  stair_step  = (uint16_t)(conf->Get("stair_step",0));
+  stair_dwell_time  = (float   )(conf->Get("stair_dwell_time",0));
+
   sleep(1);
   HV_Set_OnOff(handle, 1); // set HV on
 
@@ -243,6 +254,12 @@ void FERSProducer::RunLoop(){
     int bindex = -1;
     int status = -1;
 
+// staircase?
+if (stair_do)
+{
+	FERS_EUDAQstaircase(handle, stair_shapingt, stair_start, stair_stop, stair_step, stair_dwell_time);
+} else {
+
     // real data
     // 
     status = FERS_GetEvent(vhandle, &bindex, &DataQualifier, &tstamp_us, &Event, &nb);
@@ -271,56 +288,59 @@ void FERSProducer::RunLoop(){
     //nb = sizeof(EventSpect);
     //std::cout<<"****** event structure filled: "<< sizeof(EventSpect) <<" bytes, pointer: "<< Event<<std::endl;
 
+}
 
-    // event creation
-    if ( DataQualifier >0 ) {
-	    int expected_size_bytes =0;
-	    int size8 = sizeof(uint8_t);
-	    std::vector<uint8_t> data;
-	    data.push_back(x_pixel); expected_size_bytes+=size8;
-	    data.push_back(y_pixel); expected_size_bytes+=size8;  
-	    //
-	    // metadata
-	    //
-	    // convert fers ip address to numbers
-	    char ip_address[20];
-	    uint8_t ip_temp = 0;
-	    char c;
-	    strcpy(ip_address, fers_ip_address.c_str());
-	    std::cout<<"*-*-* fers ip is "<< ip_address << std::endl;
-	    for (int i=0; i<20; i++){
-		    c = ip_address[i];
-		    if ( c == '.' ) {
-			    data.push_back( ip_temp ); expected_size_bytes+=size8;
-			    ip_temp = 0;
-		    } else {
-			    if ( (c >= '0') && ( c <= '9') ) {
-				    ip_temp = 10*ip_temp + (int)c - '0';
-			    }
-		    }
-	    }
-	    data.push_back( ip_temp ); expected_size_bytes+=size8;
-	    // serial number
-	    int sernum=0;
-	    HV_Get_SerNum(handle, &sernum);
-	    data.push_back((uint8_t)sernum); expected_size_bytes+=size8;
-	    //handle
-	    data.push_back((uint8_t)handle); expected_size_bytes+=size8;
-	    // data qualifier
-	    data.push_back((uint8_t)DataQualifier); expected_size_bytes+=size8;
-	    // number of byte of event raw data
-	    //data.push_back((uint8_t)nb); expected_size_bytes+=size8;
+if (!stair_do){ // staircase events are created in the dedicated routine
+	// event creation
+	if ( DataQualifier >0 ) {
+		int expected_size_bytes =0;
+		int size8 = sizeof(uint8_t);
+		std::vector<uint8_t> data;
+		data.push_back(x_pixel); expected_size_bytes+=size8;
+		data.push_back(y_pixel); expected_size_bytes+=size8;  
+		//
+		// metadata
+		//
+		// convert fers ip address to numbers
+		char ip_address[20];
+		uint8_t ip_temp = 0;
+		char c;
+		strcpy(ip_address, fers_ip_address.c_str());
+		std::cout<<"*-*-* fers ip is "<< ip_address << std::endl;
+		for (int i=0; i<20; i++){
+			c = ip_address[i];
+			if ( c == '.' ) {
+				data.push_back( ip_temp ); expected_size_bytes+=size8;
+				ip_temp = 0;
+			} else {
+				if ( (c >= '0') && ( c <= '9') ) {
+					ip_temp = 10*ip_temp + (int)c - '0';
+				}
+			}
+		}
+		data.push_back( ip_temp ); expected_size_bytes+=size8;
+		// serial number
+		int sernum=0;
+		HV_Get_SerNum(handle, &sernum);
+		data.push_back((uint8_t)sernum); expected_size_bytes+=size8;
+		//handle
+		data.push_back((uint8_t)handle); expected_size_bytes+=size8;
+		// data qualifier
+		data.push_back((uint8_t)DataQualifier); expected_size_bytes+=size8;
+		// number of byte of event raw data
+		//data.push_back((uint8_t)nb); expected_size_bytes+=size8;
 
-	    //std::cout<<"TRYING to pack an event. Number of elements in header (expected "<< expected_size_bytes<<"): "<<data.size()<<std::endl;
-	    FERSpackevent(Event, DataQualifier, &data);
+		//std::cout<<"TRYING to pack an event. Number of elements in header (expected "<< expected_size_bytes<<"): "<<data.size()<<std::endl;
+		FERSpackevent(Event, DataQualifier, &data);
 
 
-	    uint32_t block_id = m_plane_id;
-	    ev->AddBlock(block_id, data);
-	    SendEvent(std::move(ev));
-	    trigger_n++;
-	    std::this_thread::sleep_until(tp_end_of_busy);
-    }
+		uint32_t block_id = m_plane_id;
+		ev->AddBlock(block_id, data);
+		SendEvent(std::move(ev));
+		trigger_n++;
+		std::this_thread::sleep_until(tp_end_of_busy);
+	}
+}
   }
 }
 //----------DOC-MARK-----END*IMP-----DOC-MARK----------

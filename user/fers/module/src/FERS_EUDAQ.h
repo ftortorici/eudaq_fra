@@ -46,4 +46,8 @@ WaveEvent_t FERSunpack_waveevent(std::vector<uint8_t> *vec);
 void FERSpack_testevent(void* Event, std::vector<uint8_t> *vec);
 TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec);
 
+/////////////////
+int FERS_EUDAQstaircase(int handle, uint16_t stair_shapingt, uint16_t stair_start, uint16_t stair_stop, uint16_t stair_step, float stair_dwell_time);
+
+
 #endif

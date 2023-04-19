@@ -458,3 +458,105 @@ TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec)
   return tmpEvent;
 }
 
+
+//////////////////////////
+// Staircase
+// da leggere dal conf
+// SHAPING_TIME_25NS
+// start
+// stop
+// step
+// dwell time
+
+// struttura staircase
+// thr     -> uint16_t
+// dwell_s -> uint16_t
+// chmean  -> uint32_t
+// shaping time usato -> uint8_t
+// HV -> float, HV_Get_Vbias( handle, &fers_dummyvar);
+// Tor_cnt
+// Qor_cnt
+// hitcnt[]
+
+int FERS_EUDAQstaircase(int handle, uint16_t stair_shapingt, uint16_t stair_start, uint16_t stair_stop, uint16_t stair_step, float stair_dwell_time)
+{
+	float HV;
+	HV_Get_Vbias( handle, &HV);
+	std::cout<<"handle           :"<< handle           << std::endl;
+	std::cout<<"stair_shapingt   :"<< stair_shapingt   << std::endl;
+	std::cout<<"stair_start      :"<< stair_start      << std::endl;
+	std::cout<<"stair_stop       :"<< stair_stop       << std::endl;
+	std::cout<<"stair_step       :"<< stair_step       << std::endl;
+	std::cout<<"stair_dwell_time :"<< stair_dwell_time << std::endl;
+	std::cout<<"HV               :"<< HV               << std::endl;
+
+//	int i, s, brd;
+//	uint32_t thr;
+//	uint32_t hitcnt[FERSLIB_MAX_NCH], Tor_cnt, Qor_cnt;
+//	FILE *st;
+//
+//	brd = FERS_INDEX(handle);
+//	uint16_t start = RunVars.StaircaseCfg[SCPARAM_MIN];
+//	uint16_t step = RunVars.StaircaseCfg[SCPARAM_STEP];
+//	uint16_t nstep = (RunVars.StaircaseCfg[SCPARAM_MAX] - RunVars.StaircaseCfg[SCPARAM_MIN])/RunVars.StaircaseCfg[SCPARAM_STEP] + 1;
+//	float dwell_s = (float)RunVars.StaircaseCfg[SCPARAM_DWELL] / 1000;
+//
+//	Con_printf("CSm", "Scanning thresholds:\n");
+//	Con_printf("Sa", "%02dRunning Staircase (0 %%)", ACQSTATUS_STAIRCASE);
+//
+//	st = fopen(SCAN_THR_FILENAME, "w");
+//	FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_COUNT);
+//	FERS_WriteRegisterSlice(handle, a_acq_ctrl, 27, 29, 0);  // Set counting mode = singles
+//	FERS_WriteRegister(handle, a_dwell_time, (uint32_t)(dwell_s * 1e9 / CLK_PERIOD)); 
+//	FERS_WriteRegister(handle, a_qdiscr_mask_0, WDcfg.Q_DiscrMask0[brd]); 
+//	FERS_WriteRegister(handle, a_qdiscr_mask_1, WDcfg.Q_DiscrMask1[brd]);  
+//	FERS_WriteRegister(handle, a_tdiscr_mask_0, WDcfg.Tlogic_Mask0[brd]);  
+//	FERS_WriteRegister(handle, a_tdiscr_mask_1, WDcfg.Tlogic_Mask1[brd]);  
+//	FERS_WriteRegister(handle, a_citiroc_cfg, 0x00070f20); // Q-discr direct (not latched)
+//	FERS_WriteRegister(handle, a_lg_sh_time, SHAPING_TIME_25NS); // Shaping Time LG
+//	FERS_WriteRegister(handle, a_hg_sh_time, SHAPING_TIME_25NS); // Shaping Time HG
+//	FERS_WriteRegister(handle, a_trg_mask, 0x1); // SW trigger only
+//	FERS_WriteRegister(handle, a_t1_out_mask, 0x10); // PTRG (for debug)
+//	FERS_WriteRegister(handle, a_t0_out_mask, 0x04); // T-OT (for debug)
+//
+//	// Start Scan
+//	Sleep(100);
+//	Con_printf("CSm", "            --------- Rate (cps) ---------\n");
+//	Con_printf("CSm", " Adv  Thr     ChMean       T-OR       Q-OR  \n");
+//	for(s = nstep; s >= 0; s--) {
+//		thr = start + s * step;
+//		FERS_WriteRegister(handle, a_qd_coarse_thr, thr);	// Threshold for Q-discr
+//		FERS_WriteRegister(handle, a_td_coarse_thr, thr);	// Threshold for T-discr
+//		FERS_WriteRegister(handle, a_scbs_ctrl, 0x000);		// set citiroc index = 0
+//		FERS_SendCommand(handle, CMD_CFG_ASIC);
+//		FERS_WriteRegister(handle, a_scbs_ctrl, 0x200);		// set citiroc index = 1
+//		FERS_SendCommand(handle, CMD_CFG_ASIC);
+//		Sleep(500);
+//		FERS_WriteRegister(handle, a_trg_mask, 0x20); // enable periodic trigger
+//		FERS_SendCommand(handle, CMD_RES_PTRG);  // Reset period trigger counter and count for dwell time
+//		Sleep((int)(dwell_s/1000 + 200));  // wait for a complete dwell time (+ margin), then read counters
+//		FERS_ReadRegister(handle, a_t_or_cnt, &Tor_cnt);
+//		FERS_ReadRegister(handle, a_q_or_cnt, &Qor_cnt);
+//		if (s < nstep) {  // skip 1st pass 
+//			uint64_t chmean = 0;
+//			fprintf(st,ebff59c0f2ed23ccf8f1f75895f2d8c7539ec5e8 "%5d ", thr);
+//			for(i=0; i<FERSLIB_MAX_NCH; i++) {
+//				FERS_ReadRegister(handle, a_hitcnt + (i << 16), &hitcnt[i]);
+//				chmean += (uint64_t)hitcnt[i];
+//				fprintf(st, "%8.3e ", hitcnt[i]/dwell_s);
+//				Stats.Staircase[FERS_INDEX(handle)][i][s] = hitcnt[i]/dwell_s; 
+//			}
+//			chmean /= FERSLIB_MAX_NCH;
+//			int perc = (100 * (nstep-s)) / nstep;
+//			if (perc > 100) perc = 100;
+//			Con_printf("CSm", "%3d%%%5d  %8.3e  %8.3e  %8.3e\n", perc, thr, chmean/dwell_s, Tor_cnt/dwell_s, Qor_cnt/dwell_s);
+//			Con_printf("Sa", "%02dRunning Staircase (%d %%)", ACQSTATUS_STAIRCASE, perc);
+//			fprintf(st, "%10.3e %10.3e ", Tor_cnt/dwell_s, Qor_cnt/dwell_s);
+//			fprintf(st, "\n");
+//		}
+//	}
+//
+//	Con_printf("Sa", "%02dDone\n", ACQSTATUS_STAIRCASE);
+//	fclose(st);
+    return 0;
+}
