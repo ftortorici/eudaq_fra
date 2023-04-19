@@ -565,9 +565,12 @@ int FERS_InitReadout(int handle, int ROmode, int *AllocatedSize) {
 	if (EvBuff[FERS_INDEX(handle)] == NULL) return FERSLIB_ERR_MALLOC_BUFFERS;
 	*AllocatedSize += EVBUFF_SIZE;
 	FERS_TotalAllocatedMem += EVBUFF_SIZE;
-	WaveEvent[FERS_INDEX(handle)].wave_hg = (uint16_t *)malloc(MAX_WAVEFORM_LENGTH * sizeof(uint16_t));
-	WaveEvent[FERS_INDEX(handle)].wave_lg = (uint16_t *)malloc(MAX_WAVEFORM_LENGTH * sizeof(uint16_t));
-	WaveEvent[FERS_INDEX(handle)].dig_probes = (uint8_t *)malloc(MAX_WAVEFORM_LENGTH * sizeof(uint8_t));
+	//WaveEvent[FERS_INDEX(handle)].wave_hg = (uint16_t *)malloc(MAX_WAVEFORM_LENGTH * sizeof(uint16_t));
+	//WaveEvent[FERS_INDEX(handle)].wave_lg = (uint16_t *)malloc(MAX_WAVEFORM_LENGTH * sizeof(uint16_t));
+	//WaveEvent[FERS_INDEX(handle)].dig_probes = (uint8_t *)malloc(MAX_WAVEFORM_LENGTH * sizeof(uint8_t));
+	//uint16_t *WaveEvent[FERS_INDEX(handle)]->wave_hg[MAX_WAVEFORM_LENGTH];
+	//uint16_t *WaveEvent[FERS_INDEX(handle)]->wave_lg[MAX_WAVEFORM_LENGTH];
+	//uint8_t *WaveEvent[FERS_INDEX(handle)]->dig_probes[MAX_WAVEFORM_LENGTH];
 	*AllocatedSize += (MAX_WAVEFORM_LENGTH * (2 * sizeof(uint16_t) + sizeof(uint8_t)));
 	FERS_TotalAllocatedMem += (MAX_WAVEFORM_LENGTH * (2 * sizeof(uint16_t) + sizeof(uint8_t)));
 
@@ -618,10 +621,10 @@ int FERS_CloseReadout(int handle) {
 	if (queue[FERS_INDEX(handle)] != NULL) free(queue[FERS_INDEX(handle)]);
 	RO_NumBoards--;
 	if ((RO_NumBoards == 0) && (WaveEvent[FERS_INDEX(handle)].wave_hg != NULL)) {  // Last board connected => can free waveform buffers
-		free(WaveEvent[FERS_INDEX(handle)].wave_hg);
-		free(WaveEvent[FERS_INDEX(handle)].wave_lg);
-		free(WaveEvent[FERS_INDEX(handle)].dig_probes);
-		WaveEvent[FERS_INDEX(handle)].wave_hg = NULL;
+		//free(WaveEvent[FERS_INDEX(handle)].wave_hg);
+		//free(WaveEvent[FERS_INDEX(handle)].wave_lg);
+		//free(WaveEvent[FERS_INDEX(handle)].dig_probes);
+		//WaveEvent[FERS_INDEX(handle)].wave_hg = NULL;
 	}
 	if (ENABLE_FERSLIB_LOGMSG) FERS_LibMsg("[INFO][BRD %02d] Close Readout\n", FERS_INDEX(handle));
 	return 0;

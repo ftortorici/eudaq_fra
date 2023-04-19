@@ -207,9 +207,9 @@ typedef struct {
 	double tstamp_us;
 	uint64_t trigger_id;
 	uint16_t ns;
-	uint16_t *wave_hg;
-	uint16_t *wave_lg;
-	uint8_t *dig_probes;
+	uint16_t wave_hg[MAX_WAVEFORM_LENGTH];
+	uint16_t wave_lg[MAX_WAVEFORM_LENGTH];
+	uint8_t dig_probes[MAX_WAVEFORM_LENGTH];
 } WaveEvent_t;
 
 // List Event (timing mode only)

@@ -258,8 +258,9 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_WARN("q_or_counts : "+std::to_string(q_or_counts ));
 				break;
 			case DTQ_WAVE:
-				EUDAQ_WARN("Trying to decode WAVE event");
+				EUDAQ_WARN("Trying to decode WAVE event, espected "+std::to_string(sizeof(EventWave))+" bytes");
 				EventWave = FERSunpack_waveevent(&data);
+				EUDAQ_WARN("unpack ok");
 				tstamp_us = EventWave.tstamp_us;
 				trigger_id= EventWave.trigger_id;
 				ns        = EventWave.ns;
@@ -268,12 +269,15 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 					wave_hg[i]= EventWave.wave_hg[i];
 					wave_lg[i]= EventWave.wave_lg[i];
 					dig_probes[i] = EventWave.dig_probes[i];
+					// hit is dumped below,for test purposes
+					hit.push_back( wave_hg[i] );
+					hitname="wave_hg";
 				}
 				hitcols = y_pixel;
 				hitrows = MAX_WAVEFORM_LENGTH/hitcols;
 				// dump the scalar ones
-				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_WARN("trigger_id : "+std::to_string(trigger_id ));
+				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_WARN("ns : "+std::to_string(ns ));
 				break;
 			case DTQ_TSPECT:
