@@ -187,7 +187,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 
 		std::vector<uint16_t> hit; // fill it with energyHG or whatever
 		std::string hitname=""; // display name for hit
-		int hitx, hity; // how many rows and columns to display
+		int hitrows, hitcols; // how many rows and columns to display
 
 		EUDAQ_WARN("Monitor > ---------- start dumping");
 		switch ( dataq ) {
@@ -207,8 +207,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 					hit.push_back( energyHG[i] );
 					hitname="energyHG";
 				}
-				hity = y_pixel;
-				hitx = x_pixel;
+				hitcols = y_pixel;
+				hitrows = x_pixel;
 				// dump the scalar ones
 				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_WARN("trigger_id: "+std::to_string(trigger_id));
@@ -228,8 +228,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 					hit.push_back( ToT[i] );
 					hitname="ToT";
 				}
-				hity = y_pixel;
-				hitx = MAX_LIST_SIZE / hity;
+				hitcols = y_pixel;
+				hitrows = MAX_LIST_SIZE / hitcols;
 				// dump the scalar ones
 				EUDAQ_WARN("nhits : "+std::to_string(nhits ));
 				break;
@@ -246,8 +246,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 					hit.push_back( counts[i] );
 					hitname="counts";
 				}
-				hity = y_pixel;
-				hitx = x_pixel;
+				hitcols = y_pixel;
+				hitrows = x_pixel;
 				t_or_counts = EventCount.t_or_counts;
 				q_or_counts = EventCount.q_or_counts;
 				// dump the scalar ones
@@ -269,8 +269,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 					wave_lg[i]= EventWave.wave_lg[i];
 					dig_probes[i] = EventWave.dig_probes[i];
 				}
-				hity = y_pixel;
-				hitx = MAX_WAVEFORM_LENGTH/hity;
+				hitcols = y_pixel;
+				hitrows = MAX_WAVEFORM_LENGTH/hitcols;
 				// dump the scalar ones
 				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_WARN("trigger_id : "+std::to_string(trigger_id ));
@@ -291,11 +291,13 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 					tstamp[i]   = EventSpect.tstamp[i]  ;
 					ToT[i]      = EventSpect.ToT[i]     ;
 					// hit is dumped below,for test purposes
+					//hit.push_back( ToT[i] );
+					//hitname="ToT";
 					hit.push_back( energyHG[i] );
 					hitname="energyHG";
 				}
-				hity = y_pixel;
-				hitx = x_pixel;
+				hitcols = y_pixel;
+				hitrows = x_pixel;
 				// dump the scalar ones
 				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_WARN("trigger_id: "+std::to_string(trigger_id));
@@ -315,8 +317,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 					hit.push_back( test_data[i] );
 					hitname="test_data";
 				}
-				hity = MAX_TEST_NWORDS;
-				hitx = 1;
+				hitcols = MAX_TEST_NWORDS;
+				hitrows = 1;
 				// dump the scalar ones
 				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_WARN("trigger_id : "+std::to_string(trigger_id ));
@@ -326,9 +328,9 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 
 		// dumping of hit
 		EUDAQ_WARN(hitname);
-		for(size_t row = 0; row < hitx; ++row) {
+		for(size_t row = 0; row < hitrows; ++row) {
 			printme="";
-			for(size_t col = 0; col < hity; ++col){
+			for(size_t col = 0; col < hitcols; ++col){
 				printme += std::to_string(hit[col+row*x_pixel]) +" ";
 			};
 			EUDAQ_WARN(printme);
