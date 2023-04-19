@@ -309,7 +309,7 @@ void FERSProducer::RunLoop(){
 	    // data qualifier
 	    data.push_back((uint8_t)DataQualifier); expected_size_bytes+=size8;
 	    // number of byte of event raw data
-	    data.push_back((uint8_t)nb); expected_size_bytes+=size8;
+	    //data.push_back((uint8_t)nb); expected_size_bytes+=size8;
 
 	    //data.insert(data.end(), hit.begin(), hit.end());
 
