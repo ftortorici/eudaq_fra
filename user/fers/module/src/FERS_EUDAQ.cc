@@ -5,7 +5,7 @@
 #include "eudaq/Monitor.hh"
 
 #include "FERSlib.h"
-#include "FERSpackunpack.h"
+#include "FERS_EUDAQ.h"
 
 // puts a nbits (16, 32, 64) integer into an 8 bits vector
 void FERSpack(int nbits, uint32_t input, std::vector<uint8_t> *vec)

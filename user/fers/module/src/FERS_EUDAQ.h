@@ -1,5 +1,5 @@
-#ifndef _FERSpackunpack_h
-#define _FERSpackunpack_h
+#ifndef _FERS_EUDAQ_h
+#define _FERS_EUDAQ_h
 
 #include <vector>
 

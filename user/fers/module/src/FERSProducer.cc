@@ -20,7 +20,7 @@
 #include <sys/file.h>
 #endif
 
-#include "FERSpackunpack.h"
+#include "FERS_EUDAQ.h"
 #include "configure.h" // for ConfigureFERS
 #include "JanusC.h"
 Config_t WDcfg;	

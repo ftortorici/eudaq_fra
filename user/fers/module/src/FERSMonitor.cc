@@ -13,7 +13,7 @@
 #include "eudaq/RawEvent.hh"
 #include "FERSlib.h"
 
-#include "FERSpackunpack.h"
+#include "FERS_EUDAQ.h"
 
 class FERSEventConverter: public eudaq::StdEventConverter{
 public:
