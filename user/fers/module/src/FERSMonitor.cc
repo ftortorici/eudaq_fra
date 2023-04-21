@@ -126,35 +126,15 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 	for(auto &block_n: block_n_list){
 		std::vector<uint8_t> block = ev->GetBlock(block_n);
 
-		if(block.size() < 2)
-			EUDAQ_THROW("Unknown data");
-		uint8_t x_pixel = block[0];
-		uint8_t y_pixel = block[1];
+		uint8_t x_pixel;
+		uint8_t y_pixel;
+		uint8_t dataq;
+		int index = read_header(&block, &x_pixel, &y_pixel, &dataq);
 
-		uint8_t uip0 = block[2];
-		uint8_t uip1 = block[3];
-		uint8_t uip2 = block[4];
-		uint8_t uip3 = block[5];
-		uint8_t sernum=block[6];
-		uint8_t handle=block[7];
-		uint8_t dataq= block[8];
-		//uint8_t nb   = block[9];
-
-		std::vector<uint8_t> data(block.begin()+9, block.end());
-
-		printme = "Monitor > received a " + std::to_string(x_pixel) + " x " + std::to_string(y_pixel) +" event from FERS @ ip "
-			+ std::to_string(uip0) +"."
-			+ std::to_string(uip1) +"."
-			+ std::to_string(uip2) +"."
-			+ std::to_string(uip3)
-			+" serial# "+ std::to_string(sernum);
-		EUDAQ_WARN(printme);
-
-		printme = "handle = "+std::to_string(handle)
-			+" data qualifier = "+std::to_string(dataq)
-			//+" #bytes = "+std::to_string(nb)
-			;
-		EUDAQ_WARN(printme);
+		EUDAQ_WARN("monitor > " + std::to_string(index) +
+		"x_pixel: " +	std::to_string(x_pixel) + " y_pixel: " + std::to_string(y_pixel) +
+		" DataQualifier : " +	std::to_string(dataq) );
+		std::vector<uint8_t> data(block.begin()+index, block.end());
 
 		// all the event types
 		SpectEvent_t    EventSpect;
@@ -162,6 +142,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		CountingEvent_t EventCount;
 		WaveEvent_t     EventWave;
 		TestEvent_t     EventTest;
+		StaircaseEvent_t StaircaseEvent;
 		// all struct vars
 		// use them to print etc
 		int nchan = x_pixel*y_pixel;
@@ -184,6 +165,15 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		uint8_t  channel[MAX_LIST_SIZE]         ;
 		uint16_t nwords                         ;
 		uint32_t test_data[MAX_TEST_NWORDS]     ;
+
+		uint16_t threshold;
+		uint16_t dwell_time; // in seconds, divide hitcnt by this to get rate
+		uint32_t chmean; // over channels, no division by time
+		uint16_t shapingt; // enum, see FERS_Registers.h
+		float    HV;
+		uint32_t Tor_cnt;
+		uint32_t Qor_cnt;
+		uint32_t hitcnt[FERSLIB_MAX_NCH];
 
 		std::vector<uint16_t> hit; // fill it with energyHG or whatever
 		std::string hitname=""; // display name for hit
@@ -327,6 +317,26 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_WARN("tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_WARN("trigger_id : "+std::to_string(trigger_id ));
 				EUDAQ_WARN("nwords : "+std::to_string(nwords ));
+				break;
+			case DTQ_STAIRCASE:
+				EUDAQ_WARN("Trying to decode STAIRCASE event");
+				StaircaseEvent = FERSunpack_staircaseevent(&data);
+				EUDAQ_WARN("threshold   : "+std::to_string(StaircaseEvent.threshold ));
+				EUDAQ_WARN("dwell_time  : "+std::to_string(StaircaseEvent.dwell_time ));
+				EUDAQ_WARN("chmean      : "+std::to_string(StaircaseEvent.chmean ));
+				EUDAQ_WARN("shapingt    : "+std::to_string(StaircaseEvent.shapingt ));
+				EUDAQ_WARN("HV          : "+std::to_string(StaircaseEvent.HV ));
+				EUDAQ_WARN("Tor_cnt     : "+std::to_string(StaircaseEvent.Tor_cnt ));
+				EUDAQ_WARN("Qor_cnt     : "+std::to_string(StaircaseEvent.Qor_cnt ));
+				for (int i=0; i<FERSLIB_MAX_NCH; i++)
+				{
+					hitcnt[i] = StaircaseEvent.hitcnt[i];
+					// hit is dumped below,for test purposes
+					hit.push_back( hitcnt[i] );
+					hitname="hitcnt";
+				}
+				hitcols = y_pixel;
+				hitrows = x_pixel;
 		}
 
 

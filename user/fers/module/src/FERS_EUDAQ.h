@@ -3,6 +3,20 @@
 
 #include <vector>
 
+#define DTQ_STAIRCASE 10
+// staircase datatype
+typedef struct {
+	uint16_t threshold;
+	uint16_t dwell_time; // in seconds, divide hitcnt by this to get rate
+	uint32_t chmean; // over channels, no division by time
+	uint16_t shapingt; // enum, see FERS_Registers.h
+	float    HV;
+	uint32_t Tor_cnt;
+	uint32_t Qor_cnt;
+	uint32_t hitcnt[FERSLIB_MAX_NCH];
+} StaircaseEvent_t;
+
+
 void FERSpack(int nbits, uint32_t input, std::vector<uint8_t> *vec);
 uint16_t FERSunpack16(int index, std::vector<uint8_t> vec);
 uint32_t FERSunpack32(int index, std::vector<uint8_t> vec);
@@ -47,7 +61,19 @@ void FERSpack_testevent(void* Event, std::vector<uint8_t> *vec);
 TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec);
 
 /////////////////
-int FERS_EUDAQstaircase(int handle, uint16_t stair_shapingt, uint16_t stair_start, uint16_t stair_stop, uint16_t stair_step, float stair_dwell_time);
 
+void FERSpack_staircaseevent(void* Event, std::vector<uint8_t> *vec);
+StaircaseEvent_t FERSunpack_staircaseevent(std::vector<uint8_t> *vec);
+
+/////////////////
+// fill "data" with some info
+void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data);
+
+// reads back essential header info (see params)
+// prints them w/ board ID info with EUDAQ_WARN
+// returns index at which raw data starts
+int read_header(std::vector<uint8_t> *data, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier);
+
+void dump_vec(std::string title, std::vector<uint8_t> *vec, int limit=0);
 
 #endif

@@ -1,10 +1,20 @@
+#include "eudaq/Producer.hh"
+#include "FERS_Registers.h"
+#include "FERSlib.h"
+#include <iostream>
+//#include <ratio>
+#include <chrono>
+#include <thread>
+//#include <random>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <iostream>
 #include "eudaq/Monitor.hh"
 
-#include "FERSlib.h"
+#include "configure.h"
+//#include "JanusC.h"
+
+#include "DataSender.hh"
 #include "FERS_EUDAQ.h"
 
 // puts a nbits (16, 32, 64) integer into an 8 bits vector
@@ -31,20 +41,21 @@ uint32_t FERSunpack32(int index, std::vector<uint8_t> vec)
 {
 	uint32_t out = vec.at(index) 
                   +vec.at(index+1) *256 
-                  +vec.at(index+2) *256*256 
-                  +vec.at(index+3) *256*256*256;
+                  +vec.at(index+2) *65536 
+                  +vec.at(index+3) *16777216;
 	return out;
 }
 uint64_t FERSunpack64(int index, std::vector<uint8_t> vec)
 {
 	uint64_t out = vec.at(index) 
-                  +vec.at(index+1) *256 
-                  +vec.at(index+2) *256*256 
-                  +vec.at(index+3) *256*256*256 
-                  +vec.at(index+4) *256*256*256*256
-                  +vec.at(index+5) *256*256*256*256*256
-                  +vec.at(index+6) *256*256*256*256*256*256
-                  +vec.at(index+7) *256*256*256*256*256*256*256;
+		+vec.at(index+1) *256 
+		+vec.at(index+2) *65536
+		+vec.at(index+3) *16777216
+		+( vec.at(index+4) 
+		  +vec.at(index+5) *256
+		  +vec.at(index+6) *65536
+		  +vec.at(index+7) *16777216
+		 )*4294967296;
 	return out;
 }
 
@@ -69,6 +80,9 @@ void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec)
       break;
     case (DTQ_TEST): // Test Mode (fixed data patterns)
       FERSpack_testevent(Event, vec);
+      break;
+    case (DTQ_STAIRCASE): // staircase event
+      FERSpack_staircaseevent(Event, vec);
   }
 }
 
@@ -301,7 +315,7 @@ SpectEvent_t FERSunpack_tspectevent(std::vector<uint8_t> *vec)
     case 16:
       tmpEvent.tstamp_us = FERSunpack16(index, data); break;
     case 32:
-      tmpEvent.tstamp_us = FERSunpack32(index, data);
+      tmpEvent.tstamp_us = FERSunpack32(index, data); break;
     case 64:
       tmpEvent.tstamp_us = FERSunpack64(index, data);
   }
@@ -355,7 +369,7 @@ CountingEvent_t FERSunpack_countevent(std::vector<uint8_t> *vec)
     case 16:
       tmpEvent.tstamp_us = FERSunpack16(index, data); break;
     case 32:
-      tmpEvent.tstamp_us = FERSunpack32(index, data);
+      tmpEvent.tstamp_us = FERSunpack32(index, data); break;
     case 64:
       tmpEvent.tstamp_us = FERSunpack64(index, data);
   }
@@ -399,7 +413,7 @@ WaveEvent_t FERSunpack_waveevent(std::vector<uint8_t> *vec)
     case 16:
       tmpEvent.tstamp_us = FERSunpack16(index, data); break;
     case 32:
-      tmpEvent.tstamp_us = FERSunpack32(index, data);
+      tmpEvent.tstamp_us = FERSunpack32(index, data); break;
     case 64:
       tmpEvent.tstamp_us = FERSunpack64(index, data);
   }
@@ -445,7 +459,7 @@ TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec)
     case 16:
       tmpEvent.tstamp_us = FERSunpack16(index, data); break;
     case 32:
-      tmpEvent.tstamp_us = FERSunpack32(index, data);
+      tmpEvent.tstamp_us = FERSunpack32(index, data); break;
     case 64:
       tmpEvent.tstamp_us = FERSunpack64(index, data);
   }
@@ -458,105 +472,149 @@ TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec)
   return tmpEvent;
 }
 
+//////////////////////////
+//	uint16_t threshold;
+//	uint16_t dwell_time; // in seconds, divide hitcnt by this to get rate
+//	uint32_t chmean; // over channels, no division by time
+//	uint16_t shapingt; // enum, see FERS_Registers.h
+//	float    HV;
+//	uint32_t Tor_cnt;
+//	uint32_t Qor_cnt;
+//	uint32_t hitcnt[FERSLIB_MAX_NCH];
+//} StaircaseEvent_t;
+void FERSpack_staircaseevent(void* Event, std::vector<uint8_t> *vec){
+  int n = FERSLIB_MAX_NCH;
+  StaircaseEvent_t* tmpEvent = (StaircaseEvent_t*) Event;
+  FERSpack(16, tmpEvent->threshold, vec);
+  FERSpack(16, tmpEvent->dwell_time, vec);
+  FERSpack(32, tmpEvent->chmean, vec);
+  FERSpack(16, tmpEvent->shapingt, vec);
+  FERSpack( 8*sizeof(float), tmpEvent->HV,  vec);
+  FERSpack(32, tmpEvent->Tor_cnt, vec);
+  FERSpack(32, tmpEvent->Qor_cnt, vec);
+  for (int i=0; i<n; i++) FERSpack(32, tmpEvent->hitcnt[i], vec);
+
+  //std::cout<<"FERSpack_staircaseevent : tmpEvent->threshold  = "+std::to_string(tmpEvent->threshold)<<std::endl;
+  //std::cout<<"FERSpack_staircaseevent : tmpEvent->dwell_time = "+std::to_string(tmpEvent->dwell_time)<<std::endl;
+  //std::cout<<"FERSpack_staircaseevent : tmpEvent->chmean     = "+std::to_string(tmpEvent->chmean)<<std::endl;
+  //std::cout<<"FERSpack_staircaseevent : tmpEvent->shapingt   = "+std::to_string(tmpEvent->shapingt)<<std::endl;
+  //std::cout<<"FERSpack_staircaseevent : tmpEvent->HV         = "+std::to_string(tmpEvent->HV)<<std::endl;
+  //std::cout<<"FERSpack_staircaseevent : tmpEvent->Tor_cnt    = "+std::to_string(tmpEvent->Tor_cnt)<<std::endl;
+  //std::cout<<"FERSpack_staircaseevent : tmpEvent->Qor_cnt    = "+std::to_string(tmpEvent->Qor_cnt)<<std::endl;
+};
+StaircaseEvent_t FERSunpack_staircaseevent(std::vector<uint8_t> *vec){
+  int n = FERSLIB_MAX_NCH;
+  std::vector<uint8_t> data( vec->begin(), vec->end() );
+  StaircaseEvent_t tmpEvent;
+  int index = 0;
+  int sd = sizeof(float);
+  tmpEvent.threshold  = FERSunpack16(index, data); index+=2;
+  tmpEvent.dwell_time = FERSunpack16(index, data); index+=2;
+  tmpEvent.chmean     = FERSunpack32(index, data); index+=4;
+  tmpEvent.shapingt   = FERSunpack16(index, data); index+=2;
+  switch(8*sd)
+  {
+    case 8:
+      tmpEvent.HV = data.at(index); break;
+    case 16:
+      tmpEvent.HV = FERSunpack16(index, data); break;
+    case 32:
+      tmpEvent.HV = FERSunpack32(index, data); break;
+    case 64:
+      tmpEvent.HV = FERSunpack64(index, data);
+  }
+  index += sd;
+  tmpEvent.Tor_cnt  = FERSunpack32(index, data); index+=4; 
+  tmpEvent.Qor_cnt  = FERSunpack32(index, data); index+=4; 
+  for (int i=0; i<n; i++){
+    tmpEvent.hitcnt[i] = FERSunpack32(index, data); index+=4;
+  }
+  dump_vec("FERSunpack_staircaseevent",vec, 20);
+  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.threshold  = "+std::to_string(tmpEvent.threshold) );
+  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.dwell_time = "+std::to_string(tmpEvent.dwell_time));
+  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.chmean     = "+std::to_string(tmpEvent.chmean)    );
+  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.shapingt   = "+std::to_string(tmpEvent.shapingt)  );
+  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.HV         = "+std::to_string(tmpEvent.HV)        );
+  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.Tor_cnt    = "+std::to_string(tmpEvent.Tor_cnt)   );
+  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.Qor_cnt    = "+std::to_string(tmpEvent.Qor_cnt)   );
+  return tmpEvent;
+
+};
+
 
 //////////////////////////
-// Staircase
-// da leggere dal conf
-// SHAPING_TIME_25NS
-// start
-// stop
-// step
-// dwell time
-
-// struttura staircase
-// thr     -> uint16_t
-// dwell_s -> uint16_t
-// chmean  -> uint32_t
-// shaping time usato -> uint8_t
-// HV -> float, HV_Get_Vbias( handle, &fers_dummyvar);
-// Tor_cnt
-// Qor_cnt
-// hitcnt[]
-
-int FERS_EUDAQstaircase(int handle, uint16_t stair_shapingt, uint16_t stair_start, uint16_t stair_stop, uint16_t stair_step, float stair_dwell_time)
+// fill "data" with some info
+void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data)
 {
-	float HV;
-	HV_Get_Vbias( handle, &HV);
-	std::cout<<"handle           :"<< handle           << std::endl;
-	std::cout<<"stair_shapingt   :"<< stair_shapingt   << std::endl;
-	std::cout<<"stair_start      :"<< stair_start      << std::endl;
-	std::cout<<"stair_stop       :"<< stair_stop       << std::endl;
-	std::cout<<"stair_step       :"<< stair_step       << std::endl;
-	std::cout<<"stair_dwell_time :"<< stair_dwell_time << std::endl;
-	std::cout<<"HV               :"<< HV               << std::endl;
+	uint8_t n=0;
+	std::vector<uint8_t> vec;
 
-//	int i, s, brd;
-//	uint32_t thr;
-//	uint32_t hitcnt[FERSLIB_MAX_NCH], Tor_cnt, Qor_cnt;
-//	FILE *st;
-//
-//	brd = FERS_INDEX(handle);
-//	uint16_t start = RunVars.StaircaseCfg[SCPARAM_MIN];
-//	uint16_t step = RunVars.StaircaseCfg[SCPARAM_STEP];
-//	uint16_t nstep = (RunVars.StaircaseCfg[SCPARAM_MAX] - RunVars.StaircaseCfg[SCPARAM_MIN])/RunVars.StaircaseCfg[SCPARAM_STEP] + 1;
-//	float dwell_s = (float)RunVars.StaircaseCfg[SCPARAM_DWELL] / 1000;
-//
-//	Con_printf("CSm", "Scanning thresholds:\n");
-//	Con_printf("Sa", "%02dRunning Staircase (0 %%)", ACQSTATUS_STAIRCASE);
-//
-//	st = fopen(SCAN_THR_FILENAME, "w");
-//	FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_COUNT);
-//	FERS_WriteRegisterSlice(handle, a_acq_ctrl, 27, 29, 0);  // Set counting mode = singles
-//	FERS_WriteRegister(handle, a_dwell_time, (uint32_t)(dwell_s * 1e9 / CLK_PERIOD)); 
-//	FERS_WriteRegister(handle, a_qdiscr_mask_0, WDcfg.Q_DiscrMask0[brd]); 
-//	FERS_WriteRegister(handle, a_qdiscr_mask_1, WDcfg.Q_DiscrMask1[brd]);  
-//	FERS_WriteRegister(handle, a_tdiscr_mask_0, WDcfg.Tlogic_Mask0[brd]);  
-//	FERS_WriteRegister(handle, a_tdiscr_mask_1, WDcfg.Tlogic_Mask1[brd]);  
-//	FERS_WriteRegister(handle, a_citiroc_cfg, 0x00070f20); // Q-discr direct (not latched)
-//	FERS_WriteRegister(handle, a_lg_sh_time, SHAPING_TIME_25NS); // Shaping Time LG
-//	FERS_WriteRegister(handle, a_hg_sh_time, SHAPING_TIME_25NS); // Shaping Time HG
-//	FERS_WriteRegister(handle, a_trg_mask, 0x1); // SW trigger only
-//	FERS_WriteRegister(handle, a_t1_out_mask, 0x10); // PTRG (for debug)
-//	FERS_WriteRegister(handle, a_t0_out_mask, 0x04); // T-OT (for debug)
-//
-//	// Start Scan
-//	Sleep(100);
-//	Con_printf("CSm", "            --------- Rate (cps) ---------\n");
-//	Con_printf("CSm", " Adv  Thr     ChMean       T-OR       Q-OR  \n");
-//	for(s = nstep; s >= 0; s--) {
-//		thr = start + s * step;
-//		FERS_WriteRegister(handle, a_qd_coarse_thr, thr);	// Threshold for Q-discr
-//		FERS_WriteRegister(handle, a_td_coarse_thr, thr);	// Threshold for T-discr
-//		FERS_WriteRegister(handle, a_scbs_ctrl, 0x000);		// set citiroc index = 0
-//		FERS_SendCommand(handle, CMD_CFG_ASIC);
-//		FERS_WriteRegister(handle, a_scbs_ctrl, 0x200);		// set citiroc index = 1
-//		FERS_SendCommand(handle, CMD_CFG_ASIC);
-//		Sleep(500);
-//		FERS_WriteRegister(handle, a_trg_mask, 0x20); // enable periodic trigger
-//		FERS_SendCommand(handle, CMD_RES_PTRG);  // Reset period trigger counter and count for dwell time
-//		Sleep((int)(dwell_s/1000 + 200));  // wait for a complete dwell time (+ margin), then read counters
-//		FERS_ReadRegister(handle, a_t_or_cnt, &Tor_cnt);
-//		FERS_ReadRegister(handle, a_q_or_cnt, &Qor_cnt);
-//		if (s < nstep) {  // skip 1st pass 
-//			uint64_t chmean = 0;
-//			fprintf(st,ebff59c0f2ed23ccf8f1f75895f2d8c7539ec5e8 "%5d ", thr);
-//			for(i=0; i<FERSLIB_MAX_NCH; i++) {
-//				FERS_ReadRegister(handle, a_hitcnt + (i << 16), &hitcnt[i]);
-//				chmean += (uint64_t)hitcnt[i];
-//				fprintf(st, "%8.3e ", hitcnt[i]/dwell_s);
-//				Stats.Staircase[FERS_INDEX(handle)][i][s] = hitcnt[i]/dwell_s; 
-//			}
-//			chmean /= FERSLIB_MAX_NCH;
-//			int perc = (100 * (nstep-s)) / nstep;
-//			if (perc > 100) perc = 100;
-//			Con_printf("CSm", "%3d%%%5d  %8.3e  %8.3e  %8.3e\n", perc, thr, chmean/dwell_s, Tor_cnt/dwell_s, Qor_cnt/dwell_s);
-//			Con_printf("Sa", "%02dRunning Staircase (%d %%)", ACQSTATUS_STAIRCASE, perc);
-//			fprintf(st, "%10.3e %10.3e ", Tor_cnt/dwell_s, Qor_cnt/dwell_s);
-//			fprintf(st, "\n");
-//		}
-//	}
-//
-//	Con_printf("Sa", "%02dDone\n", ACQSTATUS_STAIRCASE);
-//	fclose(st);
-    return 0;
+	// this are needed
+	vec.push_back(x_pixel);
+	vec.push_back(y_pixel);
+	vec.push_back((uint8_t)DataQualifier);
+	n+=3;
+
+	// ID info:
+
+	// serial number
+	int sernum=0;
+	HV_Get_SerNum(handle, &sernum);
+	vec.push_back((uint8_t)sernum);
+	n++;
+
+	//handle
+	vec.push_back((uint8_t)handle);
+	n++;
+
+	// put everything in data, prefixing header with its size
+	data->push_back(n);
+	//std::cout<<"***** make header > going to write "<< std::to_string(n) <<" bytes" <<std::endl;
+	for (int i=0; i<n; i++)
+	{
+		//std::cout<<"***** make header > writing "<< std::to_string(vec.at(i)) <<std::endl;
+		data->push_back( vec.at(i) );
+	}
 }
+// reads back essential header info (see params)
+// prints them w/ board ID info with EUDAQ_WARN
+// returns index at which raw data starts
+int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier)
+{
+	std::vector<uint8_t> data(vec->begin(), vec->end());
+	int index = data.at(0);
+	EUDAQ_WARN("read header > going to read " + std::to_string(index) +" bytes");
+
+	if(data.size() < index+1)
+		EUDAQ_THROW("Unknown data");
+	
+	*x_pixel = data.at(1);
+	*y_pixel = data.at(2);
+	*DataQualifier = data.at(3);
+
+	uint8_t sernum=data.at(4);
+	uint8_t handle=data.at(5);
+
+	std::string printme = "Monitor > received from FERS serial# "
+		+ std::to_string(sernum)
+		+" handle "+std::to_string(handle)
+		+" n "+std::to_string(index)
+		+" x "+std::to_string(*x_pixel)
+		+" y "+std::to_string(*y_pixel)
+		;
+	EUDAQ_WARN(printme);
+
+	return index+1; // first header byte is header size, then index bytes
+};
+
+// dump a vector
+void dump_vec(std::string title, std::vector<uint8_t> *vec, int limit){
+	int n = vec->size();
+	if (limit > 0) n = std::min(n, limit);
+	std::string printme;
+	for (int i=0; i<n; i++){
+		printme = "--- "+title+" > vec[" + std::to_string(i) + "] = "+ std::to_string( vec->at(i) );
+		//std::cout << printme <<std::endl;
+		EUDAQ_WARN( printme );
+	}
+};
