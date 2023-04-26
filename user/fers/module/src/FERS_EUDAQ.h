@@ -7,10 +7,10 @@
 // staircase datatype
 typedef struct {
 	uint16_t threshold;
-	uint16_t dwell_time; // in seconds, divide hitcnt by this to get rate
-	uint32_t chmean; // over channels, no division by time
 	uint16_t shapingt; // enum, see FERS_Registers.h
-	float    HV;
+	uint32_t dwell_time; // in seconds, divide hitcnt by this to get rate
+	uint32_t chmean; // over channels, no division by time
+	uint32_t HV; // 1000 * HV from HV_Get_Vbias( handle, &HV);
 	uint32_t Tor_cnt;
 	uint32_t Qor_cnt;
 	uint32_t hitcnt[FERSLIB_MAX_NCH];

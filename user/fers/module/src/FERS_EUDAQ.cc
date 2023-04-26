@@ -82,6 +82,7 @@ void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec)
       FERSpack_testevent(Event, vec);
       break;
     case (DTQ_STAIRCASE): // staircase event
+      //EUDAQ_INFO("*** FERSpackevent > received a staircase event");
       FERSpack_staircaseevent(Event, vec);
   }
 }
@@ -474,69 +475,51 @@ TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec)
 
 //////////////////////////
 //	uint16_t threshold;
-//	uint16_t dwell_time; // in seconds, divide hitcnt by this to get rate
-//	uint32_t chmean; // over channels, no division by time
 //	uint16_t shapingt; // enum, see FERS_Registers.h
-//	float    HV;
+//	uint32_t dwell_time; // in seconds, divide hitcnt by this to get rate
+//	uint32_t chmean; // over channels, no division by time
+//	uint32_t HV; // 1000 * HV from HV_Get_Vbias( handle, &HV);
 //	uint32_t Tor_cnt;
 //	uint32_t Qor_cnt;
 //	uint32_t hitcnt[FERSLIB_MAX_NCH];
 //} StaircaseEvent_t;
 void FERSpack_staircaseevent(void* Event, std::vector<uint8_t> *vec){
+  //EUDAQ_INFO("*** FERSpack_staircaseevent > starting encoding");
   int n = FERSLIB_MAX_NCH;
   StaircaseEvent_t* tmpEvent = (StaircaseEvent_t*) Event;
-  FERSpack(16, tmpEvent->threshold, vec);
-  FERSpack(16, tmpEvent->dwell_time, vec);
-  FERSpack(32, tmpEvent->chmean, vec);
-  FERSpack(16, tmpEvent->shapingt, vec);
-  FERSpack( 8*sizeof(float), tmpEvent->HV,  vec);
-  FERSpack(32, tmpEvent->Tor_cnt, vec);
-  FERSpack(32, tmpEvent->Qor_cnt, vec);
-  for (int i=0; i<n; i++) FERSpack(32, tmpEvent->hitcnt[i], vec);
-
-  //std::cout<<"FERSpack_staircaseevent : tmpEvent->threshold  = "+std::to_string(tmpEvent->threshold)<<std::endl;
-  //std::cout<<"FERSpack_staircaseevent : tmpEvent->dwell_time = "+std::to_string(tmpEvent->dwell_time)<<std::endl;
-  //std::cout<<"FERSpack_staircaseevent : tmpEvent->chmean     = "+std::to_string(tmpEvent->chmean)<<std::endl;
-  //std::cout<<"FERSpack_staircaseevent : tmpEvent->shapingt   = "+std::to_string(tmpEvent->shapingt)<<std::endl;
-  //std::cout<<"FERSpack_staircaseevent : tmpEvent->HV         = "+std::to_string(tmpEvent->HV)<<std::endl;
-  //std::cout<<"FERSpack_staircaseevent : tmpEvent->Tor_cnt    = "+std::to_string(tmpEvent->Tor_cnt)<<std::endl;
-  //std::cout<<"FERSpack_staircaseevent : tmpEvent->Qor_cnt    = "+std::to_string(tmpEvent->Qor_cnt)<<std::endl;
+  int index=0;
+  FERSpack(16, tmpEvent->threshold, vec);  index+=2;
+  FERSpack(16, tmpEvent->shapingt, vec);   index+=2;
+  FERSpack(32, tmpEvent->dwell_time, vec); index+=4;
+  FERSpack(32, tmpEvent->chmean, vec);     index+=4;
+  FERSpack(32, tmpEvent->HV,  vec);        index+=4;
+  FERSpack(32, tmpEvent->Tor_cnt, vec);    index+=4;
+  FERSpack(32, tmpEvent->Qor_cnt, vec);    index+=4;
+  for (int i=0; i<n; i++)
+  {
+	  FERSpack(32, tmpEvent->hitcnt[i], vec); index+=4;
+  }
+  //EUDAQ_INFO("*** FERSpack_staircaseevent > event cast: size " +std::to_string(sizeof(*tmpEvent)));
+  //EUDAQ_INFO("*** FERSpack_staircaseevent > index: "+std::to_string(index));
+  //EUDAQ_INFO("*** FERSpack_staircaseevent > threshold: "+std::to_string(tmpEvent->threshold));
 };
 StaircaseEvent_t FERSunpack_staircaseevent(std::vector<uint8_t> *vec){
   int n = FERSLIB_MAX_NCH;
   std::vector<uint8_t> data( vec->begin(), vec->end() );
   StaircaseEvent_t tmpEvent;
   int index = 0;
-  int sd = sizeof(float);
   tmpEvent.threshold  = FERSunpack16(index, data); index+=2;
-  tmpEvent.dwell_time = FERSunpack16(index, data); index+=2;
-  tmpEvent.chmean     = FERSunpack32(index, data); index+=4;
   tmpEvent.shapingt   = FERSunpack16(index, data); index+=2;
-  switch(8*sd)
-  {
-    case 8:
-      tmpEvent.HV = data.at(index); break;
-    case 16:
-      tmpEvent.HV = FERSunpack16(index, data); break;
-    case 32:
-      tmpEvent.HV = FERSunpack32(index, data); break;
-    case 64:
-      tmpEvent.HV = FERSunpack64(index, data);
-  }
-  index += sd;
-  tmpEvent.Tor_cnt  = FERSunpack32(index, data); index+=4; 
-  tmpEvent.Qor_cnt  = FERSunpack32(index, data); index+=4; 
+  tmpEvent.dwell_time = FERSunpack32(index, data); index+=4;
+  tmpEvent.chmean     = FERSunpack32(index, data); index+=4;
+  tmpEvent.HV         = FERSunpack32(index, data); index+=4;
+  tmpEvent.Tor_cnt    = FERSunpack32(index, data); index+=4; 
+  tmpEvent.Qor_cnt    = FERSunpack32(index, data); index+=4; 
   for (int i=0; i<n; i++){
     tmpEvent.hitcnt[i] = FERSunpack32(index, data); index+=4;
   }
-  dump_vec("FERSunpack_staircaseevent",vec, 20);
-  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.threshold  = "+std::to_string(tmpEvent.threshold) );
-  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.dwell_time = "+std::to_string(tmpEvent.dwell_time));
-  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.chmean     = "+std::to_string(tmpEvent.chmean)    );
-  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.shapingt   = "+std::to_string(tmpEvent.shapingt)  );
-  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.HV         = "+std::to_string(tmpEvent.HV)        );
-  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.Tor_cnt    = "+std::to_string(tmpEvent.Tor_cnt)   );
-  //EUDAQ_WARN("FERSunpack_staircaseevent : tmpEvent.Qor_cnt    = "+std::to_string(tmpEvent.Qor_cnt)   );
+  //EUDAQ_WARN("FERSunpack_staircaseevent: sizeof vec: "+std::to_string(vec->size()) +" index: "+std::to_string(index) +" sizeof struct: "+std::to_string(sizeof(tmpEvent)));
+  //dump_vec("FERSunpack_staircaseevent",vec, 16);
   return tmpEvent;
 
 };
@@ -583,7 +566,7 @@ int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, u
 {
 	std::vector<uint8_t> data(vec->begin(), vec->end());
 	int index = data.at(0);
-	EUDAQ_WARN("read header > going to read " + std::to_string(index) +" bytes");
+	//EUDAQ_WARN("read header > going to read " + std::to_string(index) +" bytes");
 
 	if(data.size() < index+1)
 		EUDAQ_THROW("Unknown data");

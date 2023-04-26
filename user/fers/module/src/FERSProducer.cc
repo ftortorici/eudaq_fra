@@ -59,7 +59,7 @@ class FERSProducer : public eudaq::Producer {
 		// staircase params
 		uint8_t stair_do;
 		uint16_t stair_start, stair_stop, stair_step, stair_shapingt;
-		float stair_dwell_time;
+		uint32_t stair_dwell_time;
 };
 //----------DOC-MARK-----END*DEC-----DOC-MARK----------
 //----------DOC-MARK-----BEG*CON-----DOC-MARK----------
@@ -163,7 +163,7 @@ void FERSProducer::DoConfigure(){
 	stair_start = (uint16_t)(conf->Get("stair_start",0));
 	stair_stop  = (uint16_t)(conf->Get("stair_stop",0));
 	stair_step  = (uint16_t)(conf->Get("stair_step",0));
-	stair_dwell_time  = (float   )(conf->Get("stair_dwell_time",0));
+	stair_dwell_time  = (uint32_t)(conf->Get("stair_dwell_time",0));
 
 	sleep(1);
 	HV_Set_OnOff(handle, 1); // set HV on
@@ -239,10 +239,27 @@ void FERSProducer::RunLoop(){
 		int DataQualifier = -1;
 		void *Event;
 
+		auto ev = eudaq::Event::MakeUnique("FERSRaw");
+		ev->SetTag("Plane ID", std::to_string(m_plane_id));
+		auto tp_trigger = std::chrono::steady_clock::now();
+		auto tp_end_of_busy = tp_trigger + m_ms_busy;
+		if(m_flag_ts){
+			std::chrono::nanoseconds du_ts_beg_ns(tp_trigger - tp_start_run);
+			std::chrono::nanoseconds du_ts_end_ns(tp_end_of_busy - tp_start_run);
+			ev->SetTimestamp(du_ts_beg_ns.count(), du_ts_end_ns.count());
+		}
+		if(m_flag_tg)
+			ev->SetTriggerN(trigger_n);
+
+
+
+
 		// staircase?
+		static bool stairdone = false;
 		if (stair_do)
 		{
-			//int FERS_EUDAQstaircase(int handle, uint8_t x_pixel, uint8_t y_pixel, uint16_t stair_shapingt, uint16_t stair_start, uint16_t stair_stop, uint16_t stair_step, float stair_dwell_time)
+			if (!stairdone)
+			{
 			uint32_t Q_DiscrMask0 = 0xFFFFFFFF;
 			uint32_t Q_DiscrMask1 = 0xFFFFFFFF;
 			uint32_t Tlogic_Mask0 = 0xFFFFFFFF;
@@ -266,9 +283,8 @@ void FERSProducer::RunLoop(){
 
 			brd = FERS_INDEX(handle);
 			uint16_t nstep = (stair_stop - stair_start)/stair_step + 1;
-			float dwell_s = stair_dwell_time / 1000;
-
-			std::cout<< "Scanning thresholds:"<< std::endl;
+			float dwell_s = (float)stair_dwell_time / 1000;
+			std::cout<<"dwell_s :"<< dwell_s << std::endl;
 
 			FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_COUNT);
 			FERS_WriteRegisterSlice(handle, a_acq_ctrl, 27, 29, 0);  // Set counting mode = singles
@@ -318,64 +334,50 @@ void FERSProducer::RunLoop(){
 					std::cout<< perc <<" "<< thr <<" "<< chmean/dwell_s <<" "<< Tor_cnt/dwell_s <<" "<< Qor_cnt/dwell_s <<std::endl;
 
 					// fill structure
-					StaircaseEvent.threshold = thr;
-					StaircaseEvent.dwell_time = dwell_s;
-					StaircaseEvent.chmean = chmean;
+					StaircaseEvent.threshold = (uint16_t)thr;
 					StaircaseEvent.shapingt = stair_shapingt;
-					StaircaseEvent.HV = HV;
+					StaircaseEvent.dwell_time = stair_dwell_time;
+					StaircaseEvent.chmean = (uint32_t)chmean;
+					StaircaseEvent.HV = (uint32_t)(1000*HV);
 					StaircaseEvent.Tor_cnt = Tor_cnt;
 					StaircaseEvent.Qor_cnt = Qor_cnt;
 
-
-
-					auto ev = eudaq::Event::MakeUnique("FERSRaw");
-					ev->SetTag("Plane ID", std::to_string(m_plane_id));
-					auto tp_trigger = std::chrono::steady_clock::now();
-					auto tp_end_of_busy = tp_trigger + m_ms_busy;
-					if(m_flag_ts){
-						std::chrono::nanoseconds du_ts_beg_ns(tp_trigger - tp_start_run);
-						std::chrono::nanoseconds du_ts_end_ns(tp_end_of_busy - tp_start_run);
-						ev->SetTimestamp(du_ts_beg_ns.count(), du_ts_end_ns.count());
-					}
-					if(m_flag_tg)
-						ev->SetTriggerN(trigger_n);
+					//EUDAQ_INFO("*** Producer > staircase struct filled");
 
 
 					Event = (void*)(&StaircaseEvent);
 					make_header(handle, x_pixel, y_pixel, DTQ_STAIRCASE, &data);
+					//EUDAQ_INFO("*** Producer > staircase header packed");
 					FERSpackevent(Event, DTQ_STAIRCASE, &data);
+					//EUDAQ_INFO("*** Producer > staircase data packed");
 
-					uint32_t block_id = m_plane_id;
+
+					uint32_t block_id = (nstep-1) - s; // starts at 0
 					ev->AddBlock(block_id, data);
-					SendEvent(std::move(ev));
+					//EUDAQ_INFO("*** Producer > staircase block added");
+					memset(&StaircaseEvent,0,sizeof(StaircaseEvent));
 
 					//ev->Delete();
 
 					std::this_thread::sleep_until(tp_end_of_busy);
 				}
 			}
-			FERSProducer::DoStopRun(); // just run once
-			std::cout<< "Done" <<std::endl;
+			stairdone = true;
+			SendEvent(std::move(ev));
 
+			//std::cout<< "Done" <<std::endl;
+			} else {
+			FERSProducer::DoStopRun(); // just run once
+			//DoStopRun(); // just run once
+			EUDAQ_WARN("Producer > staircase event sent");
+			EUDAQ_WARN("*** *** PLEASE STOP THE RUN *** ***");
+			}
 
 		} else { // not staircase
 			double tstamp_us = -1;
 			int nb = -1;
 			int bindex = -1;
 			int status = -1;
-
-			auto ev = eudaq::Event::MakeUnique("FERSRaw");
-			ev->SetTag("Plane ID", std::to_string(m_plane_id));
-			auto tp_trigger = std::chrono::steady_clock::now();
-			auto tp_end_of_busy = tp_trigger + m_ms_busy;
-			if(m_flag_ts){
-				std::chrono::nanoseconds du_ts_beg_ns(tp_trigger - tp_start_run);
-				std::chrono::nanoseconds du_ts_end_ns(tp_end_of_busy - tp_start_run);
-				ev->SetTimestamp(du_ts_beg_ns.count(), du_ts_end_ns.count());
-			}
-			if(m_flag_tg)
-				ev->SetTriggerN(trigger_n);
-
 
 
 			// real data

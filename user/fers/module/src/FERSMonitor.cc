@@ -120,7 +120,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 	// dump su log
 	std::string printme="";
 	size_t nblocks= ev->NumBlocks();
-	EUDAQ_WARN("number of blocks: "+std::to_string(nblocks));
+	//EUDAQ_WARN("Monitor > number of blocks: "+std::to_string(nblocks));
 	auto block_n_list = ev->GetBlockNumList();
 
 	for(auto &block_n: block_n_list){
@@ -131,10 +131,11 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		uint8_t dataq;
 		int index = read_header(&block, &x_pixel, &y_pixel, &dataq);
 
-		EUDAQ_WARN("monitor > " + std::to_string(index) +
-		"x_pixel: " +	std::to_string(x_pixel) + " y_pixel: " + std::to_string(y_pixel) +
-		" DataQualifier : " +	std::to_string(dataq) );
+		//EUDAQ_WARN("monitor > " + std::to_string(index) +
+		//" x_pixel: " +	std::to_string(x_pixel) + " y_pixel: " + std::to_string(y_pixel) +
+		//" DataQualifier : " +	std::to_string(dataq) );
 		std::vector<uint8_t> data(block.begin()+index, block.end());
+		//EUDAQ_WARN("monitor > data size: "+std::to_string(data.size()));
 
 		// all the event types
 		SpectEvent_t    EventSpect;
@@ -179,7 +180,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		std::string hitname=""; // display name for hit
 		int hitrows, hitcols; // how many rows and columns to display
 
-		EUDAQ_WARN("Monitor > ---------- start dumping");
+		EUDAQ_WARN("Monitor > ---------- start dumping (block "+std::to_string(block_n)+")");
 		switch ( dataq ) {
 			case DTQ_SPECT:
 				EUDAQ_WARN("Trying to decode SPECT event");
@@ -320,14 +321,22 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				break;
 			case DTQ_STAIRCASE:
 				EUDAQ_WARN("Trying to decode STAIRCASE event");
-				StaircaseEvent = FERSunpack_staircaseevent(&data);
-				EUDAQ_WARN("threshold   : "+std::to_string(StaircaseEvent.threshold ));
-				EUDAQ_WARN("dwell_time  : "+std::to_string(StaircaseEvent.dwell_time ));
-				EUDAQ_WARN("chmean      : "+std::to_string(StaircaseEvent.chmean ));
-				EUDAQ_WARN("shapingt    : "+std::to_string(StaircaseEvent.shapingt ));
-				EUDAQ_WARN("HV          : "+std::to_string(StaircaseEvent.HV ));
-				EUDAQ_WARN("Tor_cnt     : "+std::to_string(StaircaseEvent.Tor_cnt ));
-				EUDAQ_WARN("Qor_cnt     : "+std::to_string(StaircaseEvent.Qor_cnt ));
+				std::vector<uint8_t> data1(data.end() - sizeof(StaircaseEvent_t), data.end());
+				StaircaseEvent = FERSunpack_staircaseevent(&data1);
+
+				float rateHz = (float)StaircaseEvent.chmean / StaircaseEvent.dwell_time * 1000;
+				float HV = (float)StaircaseEvent.HV / 1000; // Volt
+
+				//EUDAQ_WARN("Monitor > threshold   : "+std::to_string(StaircaseEvent.threshold ));
+				EUDAQ_WARN("threshold : "+std::to_string(StaircaseEvent.threshold ));
+				EUDAQ_WARN("chmean / dwell_time : "+std::to_string(rateHz)+" Hz");
+
+				//EUDAQ_WARN("dwell_time ms: "+std::to_string(StaircaseEvent.dwell_time ));
+				//EUDAQ_WARN("chmean    : "+std::to_string(StaircaseEvent.chmean ));
+				//EUDAQ_WARN("shapingt  : "+std::to_string(StaircaseEvent.shapingt ));
+				//EUDAQ_WARN("HV        : "+std::to_string(HV);
+				//EUDAQ_WARN("Tor_cnt   : "+std::to_string(StaircaseEvent.Tor_cnt ));
+				//EUDAQ_WARN("Qor_cnt   : "+std::to_string(StaircaseEvent.Qor_cnt ));
 				for (int i=0; i<FERSLIB_MAX_NCH; i++)
 				{
 					hitcnt[i] = StaircaseEvent.hitcnt[i];
@@ -337,6 +346,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				}
 				hitcols = y_pixel;
 				hitrows = x_pixel;
+				EUDAQ_WARN("*** *** PLEASE STOP THE RUN *** ***");
 		}
 
 
@@ -349,11 +359,9 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			};
 			EUDAQ_WARN(printme);
 		}
-		//EUDAQ_WARN(printme);
 
 	}
 	EUDAQ_WARN("Monitor > ---------- end dumping");
-
 
 
 	if(m_en_std_converter){
