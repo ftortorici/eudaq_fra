@@ -2,6 +2,8 @@
 #define _FERS_EUDAQ_h
 
 #include <vector>
+#include "paramparser.h"
+#include <map>
 
 #define DTQ_STAIRCASE 10
 // staircase datatype
@@ -16,6 +18,63 @@ typedef struct {
 	uint32_t hitcnt[FERSLIB_MAX_NCH];
 } StaircaseEvent_t;
 
+// known types of event (for event length checks for instance in Monitor)
+static const std::map<uint8_t, int> event_lengths =
+{
+{ DTQ_SPECT     , sizeof(SpectEvent_t)    },
+{ DTQ_TIMING    , sizeof(ListEvent_t)     },
+{ DTQ_COUNT     , sizeof(CountingEvent_t) },
+{ DTQ_WAVE      , sizeof(WaveEvent_t)     },
+{ DTQ_TSPECT    , sizeof(SpectEvent_t)    },
+{ DTQ_TEST      , sizeof(TestEvent_t)     },
+{ DTQ_STAIRCASE , sizeof(StaircaseEvent_t)}
+};                                
+                                  
+                                  
+//////////////////////////        
+// use this to pack every kind of  event
+void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
+//////////////////////////        
+                                  
+// for each kind of event: the "p}ack" is used by FERSpackevent,
+// whereas the "unpack" is meant sto be used individually
+
+// basic types of events 
+void FERSpack_spectevent(void* Event, std::vector<uint8_t> *vec);
+SpectEvent_t FERSunpack_spectevent(std::vector<uint8_t> *vec);
+
+void FERSpack_listevent(void* Event, std::vector<uint8_t> *vec);
+ListEvent_t FERSunpack_listevent(std::vector<uint8_t> *vec);
+
+void FERSpack_tspectevent(void* Event, std::vector<uint8_t> *vec);
+SpectEvent_t FERSunpack_tspectevent(std::vector<uint8_t> *vec);
+
+void FERSpack_countevent(void* Event, std::vector<uint8_t> *vec);
+CountingEvent_t FERSunpack_countevent(std::vector<uint8_t> *vec);
+
+void FERSpack_waveevent(void* Event, std::vector<uint8_t> *vec);
+WaveEvent_t FERSunpack_waveevent(std::vector<uint8_t> *vec);
+
+void FERSpack_testevent(void* Event, std::vector<uint8_t> *vec);
+TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec);
+
+// advanced
+void FERSpack_staircaseevent(void* Event, std::vector<uint8_t> *vec);
+StaircaseEvent_t FERSunpack_staircaseevent(std::vector<uint8_t> *vec);
+
+/////////////////
+
+// utilities used by the above methods
+
+// fill "data" with some info
+void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data);
+
+// reads back essential header info (see params)
+// prints them w/ board ID info with EUDAQ_WARN
+// returns index at which raw data starts
+int read_header(std::vector<uint8_t> *data, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier);
+
+void dump_vec(std::string title, std::vector<uint8_t> *vec, int start=0, int stop=0);
 
 void FERSpack(int nbits, uint32_t input, std::vector<uint8_t> *vec);
 uint16_t FERSunpack16(int index, std::vector<uint8_t> vec);
@@ -35,45 +94,21 @@ uint64_t FERSunpack64(int index, std::vector<uint8_t> vec);
 //  std::printf("FERSunpack : num32r = %x\n", num32r);
 //  std::printf("FERSunpack : num16r = %x\n", num16r);
 
-//////////////////////////
-// use this to pack every kind of event
-void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
-//////////////////////////
 
-// for each kind of event: the "pack" is used by FERSpackevent,
-// whereas the "unpack" is meant to be used individually
-void FERSpack_spectevent(void* Event, std::vector<uint8_t> *vec);
-SpectEvent_t FERSunpack_spectevent(std::vector<uint8_t> *vec);
+///////////////////////  FUNCTIONS IN ALPHA STATE  /////////////////////
+///////////////////////  NO DEBUG IS DONE. AT ALL! /////////////////////
 
-void FERSpack_listevent(void* Event, std::vector<uint8_t> *vec);
-ListEvent_t FERSunpack_listevent(std::vector<uint8_t> *vec);
+// init WDcfg structure with default settings
+void initWDcfg(Config_t *WDcfg);
 
-void FERSpack_tspectevent(void* Event, std::vector<uint8_t> *vec);
-SpectEvent_t FERSunpack_tspectevent(std::vector<uint8_t> *vec);
+// verbose 
+// 0: fine: minimal set of params for first board only
+// 1: tell me more: every param of first board, no channel details
+// 2: are you sure?!?: as 2 + every channel
+// 3: ok then: everything of every board
+void dumpWDcfg(Config_t WDcfg, int verbose);
 
-void FERSpack_countevent(void* Event, std::vector<uint8_t> *vec);
-CountingEvent_t FERSunpack_countevent(std::vector<uint8_t> *vec);
-
-void FERSpack_waveevent(void* Event, std::vector<uint8_t> *vec);
-WaveEvent_t FERSunpack_waveevent(std::vector<uint8_t> *vec);
-
-void FERSpack_testevent(void* Event, std::vector<uint8_t> *vec);
-TestEvent_t FERSunpack_testevent(std::vector<uint8_t> *vec);
-
-/////////////////
-
-void FERSpack_staircaseevent(void* Event, std::vector<uint8_t> *vec);
-StaircaseEvent_t FERSunpack_staircaseevent(std::vector<uint8_t> *vec);
-
-/////////////////
-// fill "data" with some info
-void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data);
-
-// reads back essential header info (see params)
-// prints them w/ board ID info with EUDAQ_WARN
-// returns index at which raw data starts
-int read_header(std::vector<uint8_t> *data, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier);
-
-void dump_vec(std::string title, std::vector<uint8_t> *vec, int limit=0);
+// hex to string
+std::string mask2string(std::string name, int b, int num);
 
 #endif

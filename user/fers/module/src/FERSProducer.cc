@@ -101,10 +101,16 @@ void FERSProducer::DoInitialise(){
 	} else
 		EUDAQ_THROW("unable to connect to fers with ip address: "+ fers_ip_address);
 
-	// try and init readout
+	// Readout Mode
+// 0	// Disable sorting 
+// 1	// Enable event sorting by Trigger Tstamp 
+// 2	// Enable event sorting by Trigger ID
 	int ROmode = ini->Get("FERS_RO_MODE",0);
 	int allocsize;
 	FERS_InitReadout(handle,ROmode,&allocsize);
+
+	initWDcfg(&WDcfg);
+	WDcfg.NumBrd++; // a board has been connected
 
 	std::cout <<" ------- RINO ----------   "<<fers_ip_address
 		<<" handle "<<handle
@@ -129,7 +135,27 @@ void FERSProducer::DoConfigure(){
 	}
 
 	fers_acq_mode = conf->Get("FERS_ACQ_MODE",0);
-	//ConfigureFERS(handle, 0); // 1 = soft cfg, no reset
+	//EUDAQ_WARN("AcqMode current: "+std::to_string(WDcfg.AcquisitionMode));
+	//EUDAQ_WARN("AcqMode requested: "+std::to_string(fers_acq_mode));
+	//WDcfg.AcquisitionMode = fers_acq_mode;
+
+	//FERS_WriteRegisterSlice(handle, a_acq_ctrl, 0, 3, fers_acq_mode);
+
+//	if (fers_acq_mode == ACQMODE_SPECT)
+//	{
+//		FERS_WriteRegister(handle, a_run_mask, 1);  // swrun
+//		FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_SPECT);
+//		FERS_WriteRegister(handle, a_trg_mask, 0x1);  // SW Trigger
+//		FERS_WriteRegisterSlice(handle, a_acq_ctrl, 12, 13, GAIN_SEL_BOTH);  // Set Gain Selection = Both
+//	} else if (fers_acq_mode == ACQMODE_COUNT)
+//	{
+//		FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_COUNT);
+//		FERS_WriteRegisterSlice(handle, a_acq_ctrl, 27, 29, 0);  // Set counting mode = singles
+//	} else { // da testare
+//		FERS_WriteRegister(handle, a_acq_ctrl, fers_acq_mode);
+//	}	
+
+	//ConfigureFERS(handle, 1); // 1 = soft cfg, 0 = hard reset
 	std::cout<<"in FERSProducer::DoConfigure, handle = "<< handle<< std::endl;
 
 	fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
@@ -174,23 +200,14 @@ void FERSProducer::DoConfigure(){
 void FERSProducer::DoStartRun(){
 	m_exit_of_run = false;
 	// here the hardware is told to startup
-	//int status = FERS_StartAcquisition(&handle, NumBrd, fers_acq_mode);
 	FERS_SendCommand( handle, CMD_ACQ_START );
-	//EUDAQ_INFO("status of FERS_StartAcquisition = "+std::to_string(status));
 	EUDAQ_INFO("FERS_ReadoutStatus (0=idle, 1=running) = "+std::to_string(FERS_ReadoutStatus));
 }
 
 //----------DOC-MARK-----BEG*STOP-----DOC-MARK----------
 void FERSProducer::DoStopRun(){
 	m_exit_of_run = true;
-	// Inputs:		handle = device handles (af all boards)
-	// 				NumBrd = number of boards to start
-	//				StartMode = start mode (Async, T0/T1 chain, TDlink)
-	// Return:		0=OK, negative number = error code
-	// --------------------------------------------------------------------------------------------------------- 
-	//int status = FERS_StopAcquisition(vhandle, NumBrd, fers_acq_mode);
 	FERS_SendCommand( handle, CMD_ACQ_STOP );
-	//EUDAQ_INFO("status of FERS_StopAcquisition = "+std::to_string(status));
 	EUDAQ_INFO("FERS_ReadoutStatus (0=idle, 1=running) = "+std::to_string(FERS_ReadoutStatus));
 }
 
@@ -218,6 +235,7 @@ void FERSProducer::DoTerminate(){
 	}
 	FERS_CloseReadout(handle);
 	HV_Set_OnOff( handle, 0); // set HV off
+	FERS_CloseDevice(handle);	
 }
 
 //----------DOC-MARK-----BEG*LOOP-----DOC-MARK----------
@@ -230,34 +248,37 @@ void FERSProducer::RunLoop(){
 	std::mt19937 gen(rd());
 	std::uniform_int_distribution<uint32_t> position(0, x_pixel*y_pixel-1);
 	std::uniform_int_distribution<uint32_t> signal(0, 63);
+
+	//dumpWDcfg(WDcfg,1);
+
+
 	while(!m_exit_of_run){
-
-		std::vector<uint8_t> hit(x_pixel*y_pixel, 0);
-		hit[position(gen)] = signal(gen);
-
-		int nchan = x_pixel*y_pixel;
-		int DataQualifier = -1;
-		void *Event;
-
-		auto ev = eudaq::Event::MakeUnique("FERSRaw");
-		ev->SetTag("Plane ID", std::to_string(m_plane_id));
-		auto tp_trigger = std::chrono::steady_clock::now();
-		auto tp_end_of_busy = tp_trigger + m_ms_busy;
-		if(m_flag_ts){
-			std::chrono::nanoseconds du_ts_beg_ns(tp_trigger - tp_start_run);
-			std::chrono::nanoseconds du_ts_end_ns(tp_end_of_busy - tp_start_run);
-			ev->SetTimestamp(du_ts_beg_ns.count(), du_ts_end_ns.count());
-		}
-		if(m_flag_tg)
-			ev->SetTriggerN(trigger_n);
-
-
-
 
 		// staircase?
 		static bool stairdone = false;
 		if (stair_do)
-		{
+		{	
+			std::vector<uint8_t> hit(x_pixel*y_pixel, 0);
+			hit[position(gen)] = signal(gen);
+
+			int nchan = x_pixel*y_pixel;
+			int DataQualifier = -1;
+			void *Event;
+
+
+			auto ev = eudaq::Event::MakeUnique("FERSProducer");
+			ev->SetTag("Plane ID", std::to_string(m_plane_id));
+			auto tp_trigger = std::chrono::steady_clock::now();
+			auto tp_end_of_busy = tp_trigger + m_ms_busy;
+			if(m_flag_ts){
+				std::chrono::nanoseconds du_ts_beg_ns(tp_trigger - tp_start_run);
+				std::chrono::nanoseconds du_ts_end_ns(tp_end_of_busy - tp_start_run);
+				ev->SetTimestamp(du_ts_beg_ns.count(), du_ts_end_ns.count());
+			}
+			if(m_flag_tg)
+				ev->SetTriggerN(trigger_n);
+
+
 			if (!stairdone)
 			{
 			uint32_t Q_DiscrMask0 = 0xFFFFFFFF;
@@ -342,22 +363,15 @@ void FERSProducer::RunLoop(){
 					StaircaseEvent.Tor_cnt = Tor_cnt;
 					StaircaseEvent.Qor_cnt = Qor_cnt;
 
-					//EUDAQ_INFO("*** Producer > staircase struct filled");
-
 
 					Event = (void*)(&StaircaseEvent);
 					make_header(handle, x_pixel, y_pixel, DTQ_STAIRCASE, &data);
-					//EUDAQ_INFO("*** Producer > staircase header packed");
 					FERSpackevent(Event, DTQ_STAIRCASE, &data);
-					//EUDAQ_INFO("*** Producer > staircase data packed");
 
 
 					uint32_t block_id = (nstep-1) - s; // starts at 0
 					ev->AddBlock(block_id, data);
-					//EUDAQ_INFO("*** Producer > staircase block added");
-					memset(&StaircaseEvent,0,sizeof(StaircaseEvent));
-
-					//ev->Delete();
+					//memset(&StaircaseEvent,0,sizeof(StaircaseEvent));
 
 					std::this_thread::sleep_until(tp_end_of_busy);
 				}
@@ -365,20 +379,39 @@ void FERSProducer::RunLoop(){
 			stairdone = true;
 			SendEvent(std::move(ev));
 
-			//std::cout<< "Done" <<std::endl;
 			} else {
 			FERSProducer::DoStopRun(); // just run once
-			//DoStopRun(); // just run once
-			EUDAQ_WARN("Producer > staircase event sent");
+			EUDAQ_INFO("Producer > staircase event sent");
 			EUDAQ_WARN("*** *** PLEASE STOP THE RUN *** ***");
 			}
 
 		} else { // not staircase
+
+			std::vector<uint8_t> hit(x_pixel*y_pixel, 0);
+			hit[position(gen)] = signal(gen);
+
+			int nchan = x_pixel*y_pixel;
+			int DataQualifier = -1;
+			void *Event;
+
+			auto ev = eudaq::Event::MakeUnique("FERSProducer");
+			ev->SetTag("Plane ID", std::to_string(m_plane_id));
+			auto tp_trigger = std::chrono::steady_clock::now();
+			auto tp_end_of_busy = tp_trigger + m_ms_busy;
+			if(m_flag_ts){
+				std::chrono::nanoseconds du_ts_beg_ns(tp_trigger - tp_start_run);
+				std::chrono::nanoseconds du_ts_end_ns(tp_end_of_busy - tp_start_run);
+				ev->SetTimestamp(du_ts_beg_ns.count(), du_ts_end_ns.count());
+			}
+			if(m_flag_tg)
+				ev->SetTriggerN(trigger_n);
+
+			//EUDAQ_INFO("producer > #blocks: "+std::to_string(ev->NumBlocks()));
+
 			double tstamp_us = -1;
 			int nb = -1;
 			int bindex = -1;
 			int status = -1;
-
 
 			// real data
 			// 
@@ -394,13 +427,15 @@ void FERSProducer::RunLoop(){
 			//std::cout<<"TRYING to CREATE an HARDCODED spectroscopy event"<<std::endl;
 			//DataQualifier = DTQ_SPECT;
 			//SpectEvent_t EventSpect;// = (SpectEvent_t*)Event;
-			//EventSpect.tstamp_us  = (double)(  1000);
-			//EventSpect.trigger_id = (uint64_t) 100;
+			////EventSpect.tstamp_us  = (double)(  1000);
+			////EventSpect.trigger_id = (uint64_t) 100;
+			//EventSpect.tstamp_us  = (double)trigger_n;
+			//EventSpect.trigger_id = (uint64_t)trigger_n;
 			//EventSpect.chmask     = (uint64_t) 120;
 			//EventSpect.qdmask     = (uint64_t) 130;
 			//for(uint16_t i=0; i<nchan; i++){
-			//  EventSpect.energyHG[i] = (uint16_t)( 200 + i);
-			//  EventSpect.energyLG[i] = (uint16_t)( 100 + i);
+			//  EventSpect.energyHG[i] = (uint16_t)( 200 + i + trigger_n);
+			//  EventSpect.energyLG[i] = (uint16_t)( 100 + i + trigger_n);
 			//  EventSpect.tstamp[i]   = (uint32_t)(1000 + i); // used in TSPEC mode only
 			//  EventSpect.ToT[i]      = (uint16_t)(  10 + i); // used in TSPEC mode only
 			//}
@@ -408,19 +443,18 @@ void FERSProducer::RunLoop(){
 			//nb = sizeof(EventSpect);
 			//std::cout<<"****** event structure filled: "<< sizeof(EventSpect) <<" bytes, pointer: "<< Event<<std::endl;
 
+
+
 			// event creation
 			if ( DataQualifier >0 ) {
 				std::vector<uint8_t> data;
-
 				make_header(handle, x_pixel, y_pixel, DataQualifier, &data);
-				std::cout<<"producer > " <<
-					"x_pixel: " <<	x_pixel << " y_pixel: " << y_pixel <<
-					" DataQualifier : " <<	DataQualifier << std::endl;
-
+				std::cout<<"producer > " << "x_pixel: " <<	x_pixel << " y_pixel: " << y_pixel << " DataQualifier : " <<	DataQualifier << std::endl;
 				FERSpackevent(Event, DataQualifier, &data);
-
 				uint32_t block_id = m_plane_id;
 				ev->AddBlock(block_id, data);
+				//EUDAQ_INFO("producer > #blocks: "+std::to_string(ev->NumBlocks()));
+				//dump_vec("data in producer",&data,34,34+2*8);
 				SendEvent(std::move(ev));
 				trigger_n++;
 				std::this_thread::sleep_until(tp_end_of_busy);
