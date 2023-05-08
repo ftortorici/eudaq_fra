@@ -1,3 +1,10 @@
+/////////////////////////////////////////////////////////////////////
+//                         2023 May 08                             //
+//                   authors: F. Tortorici                         //
+//                email: francesco.tortorici@ct.infn.it            //
+//                        notes:                                   //
+/////////////////////////////////////////////////////////////////////
+
 #include "eudaq/Producer.hh"
 #include "FERS_Registers.h"
 #include "FERSlib.h"
@@ -14,15 +21,8 @@
 #include "DataSender.hh"
 #include "FERS_EUDAQ.h"
 
-//event_lengths[ DTQ_SPECT     ] = sizeof(SpectEvent_t)    ;
-//event_lengths[ DTQ_TIMING    ] = sizeof(ListEvent_t)     ;
-//event_lengths[ DTQ_COUNT     ] = sizeof(CountingEvent_t) ;
-//event_lengths[ DTQ_WAVE      ] = sizeof(WaveEvent_t)     ;
-//event_lengths[ DTQ_TSPECT    ] = sizeof(SpectEvent_t)    ;
-//event_lengths[ DTQ_TEST      ] = sizeof(TestEvent_t)     ;
-//event_lengths[ DTQ_STAIRCASE ] = sizeof(StaircaseEvent_t);
-
-// puts a nbits (16, 32, 64) integer into an 8 bits vector
+// puts a nbits (16, 32, 64) integer into an 8 bits vector.
+// bytes are in a machine-independent order
 void FERSpack(int nbits, uint32_t input, std::vector<uint8_t> *vec)
 {
 	uint8_t out;// = (uint8_t)( input & 0x00FF);
@@ -170,7 +170,7 @@ SpectEvent_t FERSunpack_spectevent(std::vector<uint8_t> *vec)
 	  EUDAQ_WARN("Size of data is right");
   }
 
-  bool debug = false;
+  bool debug = false; // toggle printing of debug info. This and if's below can be removed in production version
   int index = 0;
   int sd = sizeof(double);
   switch(8*sd)
@@ -613,182 +613,3 @@ void dump_vec(std::string title, std::vector<uint8_t> *vec, int start, int stop)
 ///////////////////////  FUNCTIONS IN ALPHA STATE  /////////////////////
 ///////////////////////  NO DEBUG IS DONE. AT ALL! /////////////////////
 
-
-// init WDcfg structure with default settings
-void initWDcfg(Config_t *WDcfg)
-{
-	memset(WDcfg, 0, sizeof(Config_t));
-	/* Default settings */
-	strcpy(WDcfg->DataFilePath, "DataFiles");
-	WDcfg->NumBrd = 0;	
-	WDcfg->NumCh = 64;
-	WDcfg->GWn = 0;
-	WDcfg->EHistoNbin = 4096;
-	WDcfg->ToAHistoNbin = 4096;
-	WDcfg->ToARebin = 1;
-	WDcfg->ToAHistoMin = 0;
-	WDcfg->ToTHistoNbin = 512;
-	WDcfg->MCSHistoNbin = 4096;
-	WDcfg->AcquisitionMode = 0;
-	WDcfg->EnableToT = 1;
-	WDcfg->TriggerMask = 0;
-	WDcfg->TriggerLogic = 0;
-	WDcfg->MajorityLevel = 2;
-	WDcfg->T0_outMask = 0;
-	WDcfg->T1_outMask = 0;
-	WDcfg->Tref_Mask = 0;
-	WDcfg->TrefWindow = 100;
-	WDcfg->PtrgPeriod = 0;
-	WDcfg->QD_CoarseThreshold = 0;
-	//WDcfg->TD_CoarseThreshold = 0;
-	WDcfg->HG_ShapingTime = 0;
-	WDcfg->LG_ShapingTime = 0;
-	WDcfg->Enable_HV_Adjust = 0;
-	WDcfg->EnableChannelTrgout = 1;
-	WDcfg->HV_Adjust_Range = 1;
-	WDcfg->EnableQdiscrLatch = 1;
-	WDcfg->GainSelect = GAIN_SEL_AUTO;
-	WDcfg->AnalogProbe = 0;
-	WDcfg->DigitalProbe = 0;
-	WDcfg->WaveformLength = 800;
-	WDcfg->Trg_HoldOff = 0;
-	WDcfg->Pedestal = 100;
-	WDcfg->TempSensCoeff[0] = 0;
-	WDcfg->TempSensCoeff[1] = 50;
-	WDcfg->TempSensCoeff[2] = 0;
-
-	for (int b = 0; b < MAX_NBRD; b++) {
-		WDcfg->TD_CoarseThreshold[b] = 0;	// new
-		WDcfg->ChEnableMask0[b] = 0xFFFFFFFF;
-		WDcfg->ChEnableMask1[b] = 0xFFFFFFFF;
-		WDcfg->Q_DiscrMask0[b] = 0xFFFFFFFF;
-		WDcfg->Q_DiscrMask1[b] = 0xFFFFFFFF;
-		WDcfg->Tlogic_Mask0[b] = 0xFFFFFFFF;
-		WDcfg->Tlogic_Mask1[b] = 0xFFFFFFFF;
-		WDcfg->HV_Vbias[b] = 30;
-		WDcfg->HV_Imax[b] = (float)0.01;
-		// Default values for TMP37
-		for (int i = 0; i < MAX_NCH; i++) {
-			WDcfg->ZS_Threshold_LG[b][i] = 0;
-			WDcfg->ZS_Threshold_HG[b][i] = 0;
-			WDcfg->QD_FineThreshold[b][i] = 0;
-			WDcfg->TD_FineThreshold[b][i] = 0;
-			WDcfg->HG_Gain[b][i] = 0;
-			WDcfg->LG_Gain[b][i] = 0;
-			WDcfg->HV_IndivAdj[b][i] = 0;
-		}
-	}
-	EUDAQ_INFO("WDcfg should be initialized");
-}
-
-
-
-// verbose 
-// 0: fine: minimal set of params for first board only
-// 1: tell me more: every param of first board, no channel details
-// 2: are you sure?!?: as 2 + every channel
-// 3: ok then: everything of every board
-void dumpWDcfg(Config_t WDcfg, int verbose=0)
-{
-	//EUDAQ_WARN("WDcfg.DataFilePath        : "+std::to_string( WDcfg.DataFilePath ));
-	EUDAQ_WARN("WDcfg.NumBrd              : "+std::to_string( WDcfg.NumBrd ));
-	EUDAQ_WARN("WDcfg.NumCh               : "+std::to_string( WDcfg.NumCh ));
-
-	if (verbose > 0){
-	EUDAQ_WARN("WDcfg.GWn                 : "+std::to_string( WDcfg.GWn ));
-	EUDAQ_WARN("WDcfg.EHistoNbin          : "+std::to_string( WDcfg.EHistoNbin ));
-	EUDAQ_WARN("WDcfg.ToAHistoNbin        : "+std::to_string( WDcfg.ToAHistoNbin ));
-	EUDAQ_WARN("WDcfg.ToARebin            : "+std::to_string( WDcfg.ToARebin ));
-	EUDAQ_WARN("WDcfg.ToAHistoMin         : "+std::to_string( WDcfg.ToAHistoMin ));
-	EUDAQ_WARN("WDcfg.ToTHistoNbin        : "+std::to_string( WDcfg.ToTHistoNbin ));
-	EUDAQ_WARN("WDcfg.MCSHistoNbin        : "+std::to_string( WDcfg.MCSHistoNbin ));
-	}
-
-	EUDAQ_WARN("WDcfg.AcquisitionMode     : "+std::to_string( WDcfg.AcquisitionMode ));
-
-	if (verbose > 0){
-	EUDAQ_WARN("WDcfg.EnableToT           : "+std::to_string( WDcfg.EnableToT ));
-	EUDAQ_WARN("WDcfg.TriggerMask         : "+std::to_string( WDcfg.TriggerMask ));
-	EUDAQ_WARN("WDcfg.TriggerLogic        : "+std::to_string( WDcfg.TriggerLogic ));
-	EUDAQ_WARN("WDcfg.MajorityLevel       : "+std::to_string( WDcfg.MajorityLevel ));
-	EUDAQ_WARN("WDcfg.T0_outMask          : "+std::to_string( WDcfg.T0_outMask ));
-	EUDAQ_WARN("WDcfg.T1_outMask          : "+std::to_string( WDcfg.T1_outMask ));
-	EUDAQ_WARN("WDcfg.Tref_Mask           : "+std::to_string( WDcfg.Tref_Mask ));
-	EUDAQ_WARN("WDcfg.TrefWindow          : "+std::to_string( WDcfg.TrefWindow ));
-	EUDAQ_WARN("WDcfg.PtrgPeriod          : "+std::to_string( WDcfg.PtrgPeriod ));
-	EUDAQ_WARN("WDcfg.QD_CoarseThreshold  : "+std::to_string( WDcfg.QD_CoarseThreshold ));
-	}
-
-	EUDAQ_WARN("WDcfg.HG_ShapingTime      : "+std::to_string( WDcfg.HG_ShapingTime ));
-	EUDAQ_WARN("WDcfg.LG_ShapingTime      : "+std::to_string( WDcfg.LG_ShapingTime ));
-
-	if (verbose > 0){
-	EUDAQ_WARN("WDcfg.Enable_HV_Adjust    : "+std::to_string( WDcfg.Enable_HV_Adjust ));
-	EUDAQ_WARN("WDcfg.EnableChannelTrgout : "+std::to_string( WDcfg.EnableChannelTrgout ));
-	EUDAQ_WARN("WDcfg.HV_Adjust_Range     : "+std::to_string( WDcfg.HV_Adjust_Range ));
-	EUDAQ_WARN("WDcfg.EnableQdiscrLatch   : "+std::to_string( WDcfg.EnableQdiscrLatch ));
-	}
-
-	EUDAQ_WARN("WDcfg.GainSelect          : "+std::to_string( WDcfg.GainSelect ));
-
-	if (verbose > 0){
-	EUDAQ_WARN("WDcfg.AnalogProbe         : "+std::to_string( WDcfg.AnalogProbe ));
-	EUDAQ_WARN("WDcfg.DigitalProbe        : "+std::to_string( WDcfg.DigitalProbe ));
-	EUDAQ_WARN("WDcfg.WaveformLength      : "+std::to_string( WDcfg.WaveformLength ));
-	EUDAQ_WARN("WDcfg.Trg_HoldOff         : "+std::to_string( WDcfg.Trg_HoldOff ));
-	EUDAQ_WARN("WDcfg.Pedestal            : "+std::to_string( WDcfg.Pedestal ));
-	EUDAQ_WARN("WDcfg.TempSensCoeff[0]    : "+std::to_string( WDcfg.TempSensCoeff[0] ));
-	EUDAQ_WARN("WDcfg.TempSensCoeff[1]    : "+std::to_string( WDcfg.TempSensCoeff[1] ));
-	EUDAQ_WARN("WDcfg.TempSensCoeff[2]    : "+std::to_string( WDcfg.TempSensCoeff[2] ));
-	}
-
-if ( verbose > 0 )
-{
-	for (int b = 0; b < MAX_NBRD; b++) {
-
-if ( (b == 0) || (verbose > 2) )
-{
-		EUDAQ_WARN("WDcfg.TD_CoarseThreshold["+std::to_string(b)+"]   : "+std::to_string( WDcfg.TD_CoarseThreshold[b] ));
-
-		EUDAQ_WARN("WDcfg.ChEnableMask0["+std::to_string(b)+"]        : "+std::to_string( WDcfg.ChEnableMask0[b] ));
-		EUDAQ_WARN("WDcfg.ChEnableMask1["+std::to_string(b)+"]        : "+std::to_string( WDcfg.ChEnableMask1[b] ));
-		EUDAQ_WARN("WDcfg.Q_DiscrMask0["+std::to_string(b)+"]         : "+std::to_string( WDcfg.Q_DiscrMask0[b] ));
-		EUDAQ_WARN("WDcfg.Q_DiscrMask1["+std::to_string(b)+"]         : "+std::to_string( WDcfg.Q_DiscrMask1[b] ));
-		EUDAQ_WARN("WDcfg.Tlogic_Mask0["+std::to_string(b)+"]         : "+std::to_string( WDcfg.Tlogic_Mask0[b] ));
-		EUDAQ_WARN("WDcfg.Tlogic_Mask1["+std::to_string(b)+"]         : "+std::to_string( WDcfg.Tlogic_Mask1[b] ));
-
-		//EUDAQ_WARN(mask2string("WDcfg.ChEnableMask0",b,WDcfg.ChEnableMask0[b]));
-		//EUDAQ_WARN(mask2string("WDcfg.ChEnableMask1",b,WDcfg.ChEnableMask1[b]));
-		//EUDAQ_WARN(mask2string("WDcfg.Q_DiscrMask0" ,b,WDcfg.Q_DiscrMask0[b] ));
-		//EUDAQ_WARN(mask2string("WDcfg.Q_DiscrMask1" ,b,WDcfg.Q_DiscrMask1[b] ));
-		//EUDAQ_WARN(mask2string("WDcfg.Tlogic_Mask0" ,b,WDcfg.Tlogic_Mask0[b] ));
-		//EUDAQ_WARN(mask2string("WDcfg.Tlogic_Mask1" ,b,WDcfg.Tlogic_Mask1[b] ));
-
-		EUDAQ_WARN("WDcfg.HV_Vbias["+std::to_string(b)+"]             : "+std::to_string( WDcfg.HV_Vbias[b] ));
-		EUDAQ_WARN("WDcfg.HV_Imax["+std::to_string(b)+"]              : "+std::to_string( WDcfg.HV_Imax[b] ));
-
-if (verbose > 1)
-{
-		for (int i = 0; i < MAX_NCH; i++) {
-			EUDAQ_WARN("WDcfg.ZS_Threshold_LG["+std::to_string(b)+"]["+std::to_string(i)+"]   : "+std::to_string( WDcfg.ZS_Threshold_LG[b][i] ));
-			EUDAQ_WARN("WDcfg.ZS_Threshold_HG["+std::to_string(b)+"]["+std::to_string(i)+"]   : "+std::to_string( WDcfg.ZS_Threshold_HG[b][i] ));
-			EUDAQ_WARN("WDcfg.QD_FineThreshold["+std::to_string(b)+"]["+std::to_string(i)+"]  : "+std::to_string( WDcfg.QD_FineThreshold[b][i] ));
-			EUDAQ_WARN("WDcfg.TD_FineThreshold["+std::to_string(b)+"]["+std::to_string(i)+"]  : "+std::to_string( WDcfg.TD_FineThreshold[b][i] ));
-			EUDAQ_WARN("WDcfg.HG_Gain["+std::to_string(b)+"]["+std::to_string(i)+"]           : "+std::to_string( WDcfg.HG_Gain[b][i] ));
-			EUDAQ_WARN("WDcfg.LG_Gain["+std::to_string(b)+"]["+std::to_string(i)+"]           : "+std::to_string( WDcfg.LG_Gain[b][i] ));
-			EUDAQ_WARN("WDcfg.HV_IndivAdj["+std::to_string(b)+"]["+std::to_string(i)+"]       : "+std::to_string( WDcfg.HV_IndivAdj[b][i] ));
-		}
-} // if (verbose > 1)
-
-} // if ( (b == 0) || (verbose > 2) )
-	}
-} // if ( verbose > 0 )
-}
-
-
-std::string mask2string(std::string name, int b, int num)
-{
-char* temp;
-sprintf(temp,"%s[%d] = %08X",name.c_str(),b,num);
-return (std::string)temp;
-}
