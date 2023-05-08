@@ -1,3 +1,10 @@
+/////////////////////////////////////////////////////////////////////
+//                         2023 May 08                             //
+//                   authors: F. Tortorici                         //
+//                email: francesco.tortorici@ct.infn.it            //
+//                        notes:                                   //
+/////////////////////////////////////////////////////////////////////
+
 #ifndef _FERS_EUDAQ_h
 #define _FERS_EUDAQ_h
 
@@ -36,7 +43,7 @@ static const std::map<uint8_t, int> event_lengths =
 void FERSpackevent(void* Event, int dataqualifier, std::vector<uint8_t> *vec);
 //////////////////////////        
                                   
-// for each kind of event: the "p}ack" is used by FERSpackevent,
+// for each kind of event: the "pack" is used by FERSpackevent,
 // whereas the "unpack" is meant sto be used individually
 
 // basic types of events 
@@ -98,17 +105,5 @@ uint64_t FERSunpack64(int index, std::vector<uint8_t> vec);
 ///////////////////////  FUNCTIONS IN ALPHA STATE  /////////////////////
 ///////////////////////  NO DEBUG IS DONE. AT ALL! /////////////////////
 
-// init WDcfg structure with default settings
-void initWDcfg(Config_t *WDcfg);
-
-// verbose 
-// 0: fine: minimal set of params for first board only
-// 1: tell me more: every param of first board, no channel details
-// 2: are you sure?!?: as 2 + every channel
-// 3: ok then: everything of every board
-void dumpWDcfg(Config_t WDcfg, int verbose);
-
-// hex to string
-std::string mask2string(std::string name, int b, int num);
 
 #endif

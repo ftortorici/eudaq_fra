@@ -1,7 +1,8 @@
 /////////////////////////////////////////////////////////////////////
-//                         2022 Jun 20                             //
+//                         2023 May 08                             //
 //                   authors: R. Persiani & F. Tortorici           //
 //                email: rinopersiani@gmail.com                    //
+//                email: francesco.tortorici@ct.infn.it            //
 //                        notes:                                   //
 /////////////////////////////////////////////////////////////////////
 
@@ -23,7 +24,6 @@
 #include "FERS_EUDAQ.h"
 #include "configure.h"
 #include "JanusC.h"
-Config_t WDcfg;	
 RunVars_t RunVars;
 int SockConsole;	// 0: use stdio console, 1: use socket console
 char ErrorMsg[250];	
@@ -109,8 +109,6 @@ void FERSProducer::DoInitialise(){
 	int allocsize;
 	FERS_InitReadout(handle,ROmode,&allocsize);
 
-	initWDcfg(&WDcfg);
-	WDcfg.NumBrd++; // a board has been connected
 
 	std::cout <<" ------- RINO ----------   "<<fers_ip_address
 		<<" handle "<<handle
@@ -122,8 +120,6 @@ void FERSProducer::DoInitialise(){
 void FERSProducer::DoConfigure(){
 	auto conf = GetConfiguration();
 	conf->Print(std::cout);
-	//std::string m_prova = conf->Get("PROVA", "pippo");
-	//std::cout <<"######## RINO ###########  "<<m_prova<<std::endl;
 	m_plane_id = conf->Get("EX0_PLANE_ID", 0);
 	m_ms_busy = std::chrono::milliseconds(conf->Get("EX0_DURATION_BUSY_MS", 1000));
 	m_flag_ts = conf->Get("EX0_ENABLE_TIMESTAMP", 0);
@@ -135,27 +131,6 @@ void FERSProducer::DoConfigure(){
 	}
 
 	fers_acq_mode = conf->Get("FERS_ACQ_MODE",0);
-	//EUDAQ_WARN("AcqMode current: "+std::to_string(WDcfg.AcquisitionMode));
-	//EUDAQ_WARN("AcqMode requested: "+std::to_string(fers_acq_mode));
-	//WDcfg.AcquisitionMode = fers_acq_mode;
-
-	//FERS_WriteRegisterSlice(handle, a_acq_ctrl, 0, 3, fers_acq_mode);
-
-//	if (fers_acq_mode == ACQMODE_SPECT)
-//	{
-//		FERS_WriteRegister(handle, a_run_mask, 1);  // swrun
-//		FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_SPECT);
-//		FERS_WriteRegister(handle, a_trg_mask, 0x1);  // SW Trigger
-//		FERS_WriteRegisterSlice(handle, a_acq_ctrl, 12, 13, GAIN_SEL_BOTH);  // Set Gain Selection = Both
-//	} else if (fers_acq_mode == ACQMODE_COUNT)
-//	{
-//		FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_COUNT);
-//		FERS_WriteRegisterSlice(handle, a_acq_ctrl, 27, 29, 0);  // Set counting mode = singles
-//	} else { // da testare
-//		FERS_WriteRegister(handle, a_acq_ctrl, fers_acq_mode);
-//	}	
-
-	//ConfigureFERS(handle, 1); // 1 = soft cfg, 0 = hard reset
 	std::cout<<"in FERSProducer::DoConfigure, handle = "<< handle<< std::endl;
 
 	fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
@@ -248,8 +223,6 @@ void FERSProducer::RunLoop(){
 	std::mt19937 gen(rd());
 	std::uniform_int_distribution<uint32_t> position(0, x_pixel*y_pixel-1);
 	std::uniform_int_distribution<uint32_t> signal(0, 63);
-
-	//dumpWDcfg(WDcfg,1);
 
 
 	while(!m_exit_of_run){
@@ -371,7 +344,6 @@ void FERSProducer::RunLoop(){
 
 					uint32_t block_id = (nstep-1) - s; // starts at 0
 					ev->AddBlock(block_id, data);
-					//memset(&StaircaseEvent,0,sizeof(StaircaseEvent));
 
 					std::this_thread::sleep_until(tp_end_of_busy);
 				}
@@ -405,8 +377,6 @@ void FERSProducer::RunLoop(){
 			}
 			if(m_flag_tg)
 				ev->SetTriggerN(trigger_n);
-
-			//EUDAQ_INFO("producer > #blocks: "+std::to_string(ev->NumBlocks()));
 
 			double tstamp_us = -1;
 			int nb = -1;
@@ -453,8 +423,6 @@ void FERSProducer::RunLoop(){
 				FERSpackevent(Event, DataQualifier, &data);
 				uint32_t block_id = m_plane_id;
 				ev->AddBlock(block_id, data);
-				//EUDAQ_INFO("producer > #blocks: "+std::to_string(ev->NumBlocks()));
-				//dump_vec("data in producer",&data,34,34+2*8);
 				SendEvent(std::move(ev));
 				trigger_n++;
 				std::this_thread::sleep_until(tp_end_of_busy);

@@ -1,3 +1,11 @@
+/////////////////////////////////////////////////////////////////////
+//                         2023 May 08                             //
+//                   authors: R. Persiani & F. Tortorici           //
+//                email: rinopersiani@gmail.com                    //
+//                email: francesco.tortorici@ct.infn.it            //
+//                        notes:                                   //
+/////////////////////////////////////////////////////////////////////
+
 #include "eudaq/Monitor.hh"
 #include "eudaq/StandardEvent.hh"
 #include "eudaq/StdEventConverter.hh"
@@ -6,10 +14,6 @@
 #include <stdio.h>
 #include "FERSlib.h"
 
-//#include <ratio>
-//#include <chrono>
-//#include <thread>
-//#include <random>
 #include "eudaq/RawEvent.hh"
 
 #include "FERS_EUDAQ.h"
@@ -248,14 +252,6 @@ bool FERSEventConverter::Converting(eudaq::EventSPC d1, eudaq::StdEventSP d2, eu
 
 
 
-    //eudaq::StandardPlane plane(block_n, "fers_plane", "fers_plane");
-    //plane.SetSizeZS(hit.size(), 1, 0);
-    //for(size_t i = 0; i < y_pixel; ++i) {
-    //        for(size_t n = 0; n < x_pixel; ++n){
-    //    	    plane.PushPixel(n, i , hit[n+i*x_pixel]);
-    //        }
-    //}
-    //d2->AddPlane(plane);
   }
   return true;
 }
@@ -340,9 +336,9 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 	for(auto &block_n: block_n_list){
 		std::vector<uint8_t> block = ev->GetBlock(block_n);
 
-		//		uint8_t x_pixel;
-		//		uint8_t y_pixel;
-		//		uint8_t dataq;
+		//uint8_t x_pixel;
+		//uint8_t y_pixel;
+		//uint8_t dataq;
 		int index = read_header(&block, &x_pixel, &y_pixel, &dataq);
 
 		int expected_size = ( *( event_lengths.find(dataq) ) ).second;
