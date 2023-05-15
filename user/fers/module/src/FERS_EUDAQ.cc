@@ -544,16 +544,18 @@ void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier
 	n+=3;
 
 	// ID info:
-
-	// serial number
-	int sernum=0;
-	HV_Get_SerNum(handle, &sernum);
-	vec.push_back((uint8_t)sernum);
-	n++;
+	//FERS_BoardInfo_t binfo;
+	//FERS_ReadBoardInfo(handle, &binfo);
 
 	//handle
 	vec.push_back((uint8_t)handle);
 	n++;
+
+	// serial number
+	int sernum=FERS_pid(handle);
+	vec.push_back( (uint8_t)( (sernum >> 0) & 0xFF ) ) ;
+	vec.push_back( (uint8_t)( (sernum >> 8) & 0xFF ) ) ;
+	n+=2;
 
 	// put everything in data, prefixing header with its size
 	data->push_back(n);
@@ -580,8 +582,8 @@ int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, u
 	*y_pixel = data.at(2);
 	*DataQualifier = data.at(3);
 
-	uint8_t sernum=data.at(4);
-	uint8_t handle=data.at(5);
+	uint8_t handle=data.at(4);
+	uint16_t sernum=FERSunpack16(5,data);
 
 	std::string printme = "Monitor > received from FERS serial# "
 		+ std::to_string(sernum)
