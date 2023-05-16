@@ -27,7 +27,8 @@
 RunVars_t RunVars;
 int SockConsole;	// 0: use stdio console, 1: use socket console
 char ErrorMsg[250];	
-int NumBrd=1; // number of boards
+//int NumBrd=2; // number of boards
+Config_t WDcfg;
 
 //----------DOC-MARK-----BEG*DEC-----DOC-MARK----------
 class FERSProducer : public eudaq::Producer {
@@ -51,6 +52,7 @@ class FERSProducer : public eudaq::Producer {
 		bool m_exit_of_run;
 
 		std::string fers_ip_address;  // IP address of the board
+		std::string fers_id;
 		int handle;		 	// Board handle
 		float fers_hv_vbias;
 		float fers_hv_imax;
@@ -85,6 +87,7 @@ void FERSProducer::DoInitialise(){
 #endif
 
 	fers_ip_address = ini->Get("FERS_IP_ADDRESS", "1.0.0.0");
+	fers_id = ini->Get("FERS_ID","");	
 	//memset(&handle, -1, sizeof(handle));
 	for (int i=0; i<FERSLIB_MAX_NBRD; i++)
 		vhandle[i] = -1;
@@ -97,7 +100,8 @@ void FERSProducer::DoInitialise(){
 	std::cout <<"-------- ret= "<<ret<<std::endl;
 	if(ret == 0){
 		std::cout <<"Connected to: "<< connection_path<<std::endl;
-		vhandle[0] = handle;
+		vhandle[WDcfg.NumBrd] = handle;
+		//WDcfg.NumBrd++;
 	} else
 		EUDAQ_THROW("unable to connect to fers with ip address: "+ fers_ip_address);
 
@@ -112,7 +116,11 @@ void FERSProducer::DoInitialise(){
 
 	std::cout <<" ------- RINO ----------   "<<fers_ip_address
 		<<" handle "<<handle
-		<<" ROmode "<<ROmode<<"  allocsize "<<allocsize<<std::endl;  
+		<<" ROmode "<<ROmode<<"  allocsize "<<allocsize
+		<<"Connected to: "<< connection_path 
+		<< " "<<fers_id<<std::endl;
+	EUDAQ_INFO("Connected to handle "+std::to_string(handle)
+			+" ip "+fers_ip_address+" "+fers_id);
 
 }
 
@@ -129,30 +137,55 @@ void FERSProducer::DoConfigure(){
 		m_flag_ts = false;
 		m_flag_tg = true;
 	}
+//std::string fers_conf_dir = conf->Get("FERS_CONF_DIR",".");
+	std::string fers_conf_filename= conf->Get("FERS_CONF_FILE","NOFILE");
+	//std::string conf_filename = fers_conf_dir + fers_conf_file;
 
 	fers_acq_mode = conf->Get("FERS_ACQ_MODE",0);
 	std::cout<<"in FERSProducer::DoConfigure, handle = "<< handle<< std::endl;
 
+	int ret = -1; // to store return code from calls to fers
+	//EUDAQ_WARN(fers_conf_dir);
+	//EUDAQ_WARN(fers_conf_filename);
+	FILE* conf_file = fopen(fers_conf_filename.c_str(),"r");
+	if (conf_file == NULL) 
+	{
+		EUDAQ_THROW("unable to open config file "+fers_conf_filename);
+	} else {
+		ret = ParseConfigFile(conf_file,&WDcfg, 1);
+		if (ret != 0)
+		{ 
+			fclose(conf_file);
+			EUDAQ_THROW("Parsing failed");
+		}
+	}
+	fclose(conf_file);
+
+	ret = ConfigureFERS(handle, 0); // 0 = hard, 1 = soft (no acq restart)
+	if (ret != 0)
+	{
+		EUDAQ_THROW("ConfigureFERS failed");
+	}
+
 	fers_hv_vbias = conf->Get("FERS_HV_Vbias", 0);
 	fers_hv_imax = conf->Get("FERS_HV_IMax", 0);
-	int retcode = 0; // to store return code from calls to fers
 	float fers_dummyvar = 0;
-	int retcode_dummy = 0;
+	int ret_dummy = 0;
 	std::cout << "\n**** FERS_HV_Imax from config: "<< fers_hv_imax <<  std::endl; 
-	retcode = HV_Set_Imax( handle, fers_hv_imax);
-	retcode = HV_Set_Imax( handle, fers_hv_imax);
-	retcode_dummy = HV_Get_Imax( handle, &fers_dummyvar); // read back from fers
-	if (retcode == 0) {
+	ret = HV_Set_Imax( handle, fers_hv_imax);
+	ret = HV_Set_Imax( handle, fers_hv_imax);
+	ret_dummy = HV_Get_Imax( handle, &fers_dummyvar); // read back from fers
+	if (ret == 0) {
 		EUDAQ_INFO("I max set!");
 		std::cout << "**** readback Imax value: "<< fers_dummyvar << std::endl;
 	} else {
 		EUDAQ_THROW("I max NOT set");
 	}
 	std::cout << "\n**** FERS_HV_Vbias from config: "<< fers_hv_vbias << std::endl;
-	retcode = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
-	retcode = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
-	retcode_dummy = HV_Get_Vbias( handle, &fers_dummyvar); // read back from fers
-	if (retcode == 0) {
+	ret = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
+	ret = HV_Set_Vbias( handle, fers_hv_vbias); // send to fers
+	ret_dummy = HV_Get_Vbias( handle, &fers_dummyvar); // read back from fers
+	if (ret == 0) {
 		EUDAQ_INFO("HV bias set!");
 		std::cout << "**** readback HV value: "<< fers_dummyvar << std::endl;
 	} else {
@@ -165,6 +198,10 @@ void FERSProducer::DoConfigure(){
 	stair_stop  = (uint16_t)(conf->Get("stair_stop",0));
 	stair_step  = (uint16_t)(conf->Get("stair_step",0));
 	stair_dwell_time  = (uint32_t)(conf->Get("stair_dwell_time",0));
+
+
+
+
 
 	sleep(1);
 	HV_Set_OnOff(handle, 1); // set HV on
