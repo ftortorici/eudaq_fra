@@ -28,8 +28,16 @@ RunVars_t RunVars;
 int SockConsole;	// 0: use stdio console, 1: use socket console
 char ErrorMsg[250];	
 //int NumBrd=2; // number of boards
+
 Config_t WDcfg;
 
+#include<sys/ipc.h>
+#include<sys/shm.h>
+#include<sys/types.h>
+#define SHM_KEY 0x1234
+struct shmseg {
+	int connectedboards = 0;
+};
 //----------DOC-MARK-----BEG*DEC-----DOC-MARK----------
 class FERSProducer : public eudaq::Producer {
 	public:
@@ -43,6 +51,7 @@ class FERSProducer : public eudaq::Producer {
 		void RunLoop() override;
 
 		static const uint32_t m_id_factory = eudaq::cstr2hash("FERSProducer");
+
 	private:
 		bool m_flag_ts;
 		bool m_flag_tg;
@@ -53,7 +62,7 @@ class FERSProducer : public eudaq::Producer {
 
 		std::string fers_ip_address;  // IP address of the board
 		std::string fers_id;
-		int handle;		 	// Board handle
+		int handle =-1;		 	// Board handle
 		float fers_hv_vbias;
 		float fers_hv_imax;
 		int fers_acq_mode;
@@ -62,6 +71,11 @@ class FERSProducer : public eudaq::Producer {
 		uint8_t stair_do;
 		uint16_t stair_start, stair_stop, stair_step, stair_shapingt;
 		uint32_t stair_dwell_time;
+
+
+		struct shmseg *shmp;
+		int shmid;
+
 };
 //----------DOC-MARK-----END*DEC-----DOC-MARK----------
 //----------DOC-MARK-----BEG*CON-----DOC-MARK----------
@@ -73,6 +87,21 @@ namespace{
 
 FERSProducer::FERSProducer(const std::string & name, const std::string & runcontrol)
 	:eudaq::Producer(name, runcontrol), m_file_lock(0), m_exit_of_run(false){  
+
+	// see https://www.tutorialspoint.com/inter_process_communication/inter_process_communication_shared_memory.htm
+	shmid = shmget(SHM_KEY, sizeof(struct shmseg), 0644|IPC_CREAT);
+	if (shmid == -1) {
+		perror("Shared memory");
+	}
+
+	// Attach to the segment to get a pointer to it.
+	shmp = (shmseg*)shmat(shmid, NULL, 0);
+	if (shmp == (void *) -1) {
+		perror("Shared memory attach");
+	}
+
+	shmp->connectedboards = 0;
+
 	}
 
 //----------DOC-MARK-----BEG*INI-----DOC-MARK----------
@@ -97,10 +126,12 @@ void FERSProducer::DoInitialise(){
 	sprintf(connection_path,"eth:%s",ip_address);
 	std::cout <<"----3333---- "<<connection_path<<std::endl;
 	int ret = FERS_OpenDevice(connection_path, &handle);
-	std::cout <<"-------- ret= "<<ret<<std::endl;
+
+	std::cout <<"-------- ret= "<<ret<<" handle = "<<handle<<std::endl;
 	if(ret == 0){
 		std::cout <<"Connected to: "<< connection_path<<std::endl;
 		vhandle[WDcfg.NumBrd] = handle;
+		shmp->connectedboards++;
 		//WDcfg.NumBrd++;
 	} else
 		EUDAQ_THROW("unable to connect to fers with ip address: "+ fers_ip_address);
@@ -120,7 +151,9 @@ void FERSProducer::DoInitialise(){
 		<<"Connected to: "<< connection_path 
 		<< " "<<fers_id<<std::endl;
 	EUDAQ_INFO("Connected to handle "+std::to_string(handle)
-			+" ip "+fers_ip_address+" "+fers_id);
+			+" ip "+fers_ip_address+" "+fers_id
+			+" connectedboards "+std::to_string(shmp->connectedboards)
+		  );
 
 }
 
@@ -248,6 +281,11 @@ void FERSProducer::DoTerminate(){
 	FERS_CloseReadout(handle);
 	HV_Set_OnOff( handle, 0); // set HV off
 	FERS_CloseDevice(handle);	
+
+	// free shared memory
+	if (shmdt(shmp) == -1) {
+		perror("shmdt");
+	}
 }
 
 //----------DOC-MARK-----BEG*LOOP-----DOC-MARK----------
