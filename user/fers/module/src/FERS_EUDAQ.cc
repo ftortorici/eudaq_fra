@@ -1,23 +1,28 @@
+/////////////////////////////////////////////////////////////////////
+//                         2023 May 08                             //
+//                   authors: F. Tortorici                         //
+//                email: francesco.tortorici@ct.infn.it            //
+//                        notes:                                   //
+/////////////////////////////////////////////////////////////////////
+
 #include "eudaq/Producer.hh"
 #include "FERS_Registers.h"
 #include "FERSlib.h"
 #include <iostream>
-//#include <ratio>
 #include <chrono>
 #include <thread>
-//#include <random>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include "eudaq/Monitor.hh"
 
 #include "configure.h"
-//#include "JanusC.h"
 
 #include "DataSender.hh"
 #include "FERS_EUDAQ.h"
 
-// puts a nbits (16, 32, 64) integer into an 8 bits vector
+// puts a nbits (16, 32, 64) integer into an 8 bits vector.
+// bytes are in a machine-independent order
 void FERSpack(int nbits, uint32_t input, std::vector<uint8_t> *vec)
 {
 	uint8_t out;// = (uint8_t)( input & 0x00FF);
@@ -109,53 +114,44 @@ void FERSpack_spectevent(void* Event, std::vector<uint8_t> *vec)
   uint32_t tstamp[nchan]  ;
   uint16_t ToT[nchan]     ;
 
-  //std::cout<<"***FERSpack: initial size of vec: "<< vec->size() <<std::endl;
   FERSpack( 8*sizeof(double), tstamp_us,  vec);
-  //std::cout<<"***FERSpack: current size of vec: "<< vec->size() <<std::endl;
   FERSpack( 64,             trigger_id, vec);
-  //std::cout<<"***FERSpack: current size of vec: "<< vec->size() <<std::endl;
   FERSpack( 64,             chmask,     vec);
-  //std::cout<<"***FERSpack: current size of vec: "<< vec->size() <<std::endl;
   FERSpack( 64,             qdmask,     vec);
-  //std::cout<<"***FERSpack: current size of vec: "<< vec->size() <<std::endl;
   for (size_t i = 0; i<nchan; i++){
     energyHG[i] = tmpEvent->energyHG[i];
     FERSpack( 16,energyHG[i], vec);
   }
-  //std::cout<<"***FERSpack: filled "<< nchan <<" * 2 bytes, current size of vec: "<< vec->size() <<std::endl;
   for (size_t i = 0; i<nchan; i++){
     energyLG[i] = tmpEvent->energyLG[i];
     FERSpack( 16,energyLG[i], vec);
   }
-  //std::cout<<"***FERSpack: filled "<< nchan <<" * 2 bytes, current size of vec: "<< vec->size() <<std::endl;
   for (size_t i = 0; i<nchan; i++){
     tstamp[i]   = tmpEvent->tstamp[i]  ;
     FERSpack( 32,tstamp[i]  , vec);
   }
-  //std::cout<<"***FERSpack: filled "<< nchan <<" * 4 bytes, current size of vec: "<< vec->size() <<std::endl;
   for (size_t i = 0; i<nchan; i++){
     ToT[i]      = tmpEvent->ToT[i]     ;
     FERSpack( 16,ToT[i]     , vec);
   }
-  //std::cout<<"***FERSpack: filled "<< nchan <<" * 2 bytes, current size of vec: "<< vec->size() <<std::endl;
 
   //      //dump on console
-  //      std::cout<< "tstamp_us  "<< tstamp_us  <<std::endl;
-  //      std::cout<< "trigger_id "<< trigger_id <<std::endl;
-  //      std::cout<< "chmask     "<< chmask     <<std::endl;
-  //      std::cout<< "qdmask     "<< qdmask     <<std::endl;
-  //
-  //      for(size_t i = 0; i < y_pixel; ++i) {
-  //        for(size_t n = 0; n < x_pixel; ++n){
-  //          //std::cout<< (int)hit[n+i*x_pixel] <<"_";
-  //          std::cout<< (int)energyHG[n+i*x_pixel] <<"_";
-  //          //std::cout<< (int)energyLG[n+i*x_pixel] <<"_";
-  //          //std::cout<< (int)tstamp  [n+i*x_pixel] <<"_";
-  //          //std::cout<< (int)ToT     [n+i*x_pixel] <<"_";
-  //        }
-  //        std::cout<< "<<"<< std::endl;
-  //      }
-  //      std::cout<<std::endl;
+        //std::cout<< "tstamp_us  "<< tstamp_us  <<std::endl;
+        //std::cout<< "trigger_id "<< trigger_id <<std::endl;
+        //std::cout<< "chmask     "<< chmask     <<std::endl;
+        //std::cout<< "qdmask     "<< qdmask     <<std::endl;
+  
+        //for(size_t i = 0; i < y_pixel; ++i) {
+        //  for(size_t n = 0; n < x_pixel; ++n){
+        //    //std::cout<< (int)hit[n+i*x_pixel] <<"_";
+        //    std::cout<< (int)energyHG[n+i*x_pixel] <<"_";
+        //    //std::cout<< (int)energyLG[n+i*x_pixel] <<"_";
+        //    //std::cout<< (int)tstamp  [n+i*x_pixel] <<"_";
+        //    //std::cout<< (int)ToT     [n+i*x_pixel] <<"_";
+        //  }
+        //  std::cout<< "<<"<< std::endl;
+        //}
+        //std::cout<<std::endl;
 }
 
 
@@ -174,7 +170,7 @@ SpectEvent_t FERSunpack_spectevent(std::vector<uint8_t> *vec)
 	  EUDAQ_WARN("Size of data is right");
   }
 
-  bool debug = false;
+  bool debug = false; // toggle printing of debug info. This and if's below can be removed in production version
   int index = 0;
   int sd = sizeof(double);
   switch(8*sd)
@@ -196,22 +192,31 @@ SpectEvent_t FERSunpack_spectevent(std::vector<uint8_t> *vec)
   if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint64_t chmask: "+std::to_string(tmpEvent.chmask));
   tmpEvent.qdmask     = FERSunpack64( index,data); index += 8;
   if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint64_t qdmask: "+std::to_string(tmpEvent.qdmask));
+  //
+  uint64_t sum=0;
   for (int i=0; i<nchan; ++i) {
     tmpEvent.energyHG[i] = FERSunpack16(index,data); index += 2;
+    sum+=tmpEvent.energyHG[i];
   }
-  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint16 energyHG[64] ");
+  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint16 energyHG[64], sum: "+std::to_string(sum));
+  sum=0;
   for (int i=0; i<nchan; ++i) {
     tmpEvent.energyLG[i] = FERSunpack16(index,data); index += 2;
+    sum+=tmpEvent.energyLG[i];
   }
-  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint16 energyLG[64] ");
+  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint16 energyLG[64], sum: "+std::to_string(sum));
+  sum=0;
   for (int i=0; i<nchan; ++i) {
     tmpEvent.tstamp[i] = FERSunpack32(index,data); index += 4;
+    sum+=tmpEvent.tstamp[i];
   }
-  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint32 tstamp[64] ");
+  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint32 tstamp[64], sum: "+std::to_string(sum));
+  sum=0;
   for (int i=0; i<nchan; ++i) {
     tmpEvent.ToT[i] = FERSunpack16(index,data); index += 2;
+    sum+=tmpEvent.ToT[i];
   }
-  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint16 ToT[64] ");
+  if (debug) EUDAQ_WARN("* index: "+std::to_string(index)+" read uint16 ToT[64], sum: "+std::to_string(sum));
 
   return tmpEvent;
 }
@@ -539,16 +544,18 @@ void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier
 	n+=3;
 
 	// ID info:
-
-	// serial number
-	int sernum=0;
-	HV_Get_SerNum(handle, &sernum);
-	vec.push_back((uint8_t)sernum);
-	n++;
+	//FERS_BoardInfo_t binfo;
+	//FERS_ReadBoardInfo(handle, &binfo);
 
 	//handle
 	vec.push_back((uint8_t)handle);
 	n++;
+
+	// serial number
+	int sernum=FERS_pid(handle);
+	vec.push_back( (uint8_t)( (sernum >> 0) & 0xFF ) ) ;
+	vec.push_back( (uint8_t)( (sernum >> 8) & 0xFF ) ) ;
+	n+=2;
 
 	// put everything in data, prefixing header with its size
 	data->push_back(n);
@@ -575,8 +582,8 @@ int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, u
 	*y_pixel = data.at(2);
 	*DataQualifier = data.at(3);
 
-	uint8_t sernum=data.at(4);
-	uint8_t handle=data.at(5);
+	uint8_t handle=data.at(4);
+	uint16_t sernum=FERSunpack16(5,data);
 
 	std::string printme = "Monitor > received from FERS serial# "
 		+ std::to_string(sernum)
@@ -591,13 +598,20 @@ int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, u
 };
 
 // dump a vector
-void dump_vec(std::string title, std::vector<uint8_t> *vec, int limit){
+void dump_vec(std::string title, std::vector<uint8_t> *vec, int start, int stop){
 	int n = vec->size();
-	if (limit > 0) n = std::min(n, limit);
+	if (stop > 0) n = min(n, stop);
 	std::string printme;
-	for (int i=0; i<n; i++){
+	for (int i=start; i<n; i++){
 		printme = "--- "+title+" > vec[" + std::to_string(i) + "] = "+ std::to_string( vec->at(i) );
 		//std::cout << printme <<std::endl;
 		EUDAQ_WARN( printme );
 	}
 };
+
+
+
+
+///////////////////////  FUNCTIONS IN ALPHA STATE  /////////////////////
+///////////////////////  NO DEBUG IS DONE. AT ALL! /////////////////////
+
