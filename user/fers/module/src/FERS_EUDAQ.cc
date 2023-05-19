@@ -615,3 +615,17 @@ void dump_vec(std::string title, std::vector<uint8_t> *vec, int start, int stop)
 ///////////////////////  FUNCTIONS IN ALPHA STATE  /////////////////////
 ///////////////////////  NO DEBUG IS DONE. AT ALL! /////////////////////
 
+void initshm( int shmid )
+{
+	struct shmseg* shmp = (shmseg*)shmat(shmid, NULL, 0);
+	shmp->connectedboards = 0;
+	for (int i=0; i<MAX_NBRD; i++)
+	{
+		shmp->HVbias[i]=0;
+		memset(shmp->IP       [i], '\0', MAXCHAR);
+		memset(shmp->desc     [i], '\0', MAXCHAR);
+		memset(shmp->location [i], '\0', MAXCHAR);
+		memset(shmp->producer [i], '\0', MAXCHAR);
+		memset(shmp->collector[i], '\0', MAXCHAR);
+	}
+}

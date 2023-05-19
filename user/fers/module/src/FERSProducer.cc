@@ -31,13 +31,14 @@ char ErrorMsg[250];
 
 Config_t WDcfg;
 
-#include<sys/ipc.h>
-#include<sys/shm.h>
-#include<sys/types.h>
-#define SHM_KEY 0x1234
-struct shmseg {
-	int connectedboards = 0;
-};
+//#include<sys/ipc.h>
+//#include<sys/shm.h>
+//#include<sys/types.h>
+//#define SHM_KEY 0x1234
+//struct shmseg {
+//	int connectedboards = 0;
+//};
+
 //----------DOC-MARK-----BEG*DEC-----DOC-MARK----------
 class FERSProducer : public eudaq::Producer {
 	public:
@@ -75,6 +76,7 @@ class FERSProducer : public eudaq::Producer {
 
 		struct shmseg *shmp;
 		int shmid;
+		int brd; // current board
 
 };
 //----------DOC-MARK-----END*DEC-----DOC-MARK----------
@@ -100,7 +102,8 @@ FERSProducer::FERSProducer(const std::string & name, const std::string & runcont
 		perror("Shared memory attach");
 	}
 
-	shmp->connectedboards = 0;
+	initshm( shmid );
+	//shmp->connectedboards = 0;
 
 	}
 
@@ -131,7 +134,9 @@ void FERSProducer::DoInitialise(){
 	if(ret == 0){
 		std::cout <<"Connected to: "<< connection_path<<std::endl;
 		vhandle[WDcfg.NumBrd] = handle;
+		brd=shmp->connectedboards;
 		shmp->connectedboards++;
+		shmp->handle[brd] = handle;
 		//WDcfg.NumBrd++;
 	} else
 		EUDAQ_THROW("unable to connect to fers with ip address: "+ fers_ip_address);
@@ -144,6 +149,12 @@ void FERSProducer::DoInitialise(){
 	int allocsize;
 	FERS_InitReadout(handle,ROmode,&allocsize);
 
+	// fill shared struct
+        std::string fers_prodid = ini->Get("FERS_PRODID","no prod ID");	
+	strcpy(shmp->IP[brd],       fers_ip_address.c_str());
+	strcpy(shmp->desc[brd],     std::to_string(FERS_pid(handle)).c_str());
+	strcpy(shmp->location[brd], fers_id.c_str());
+	strcpy(shmp->producer[brd], fers_prodid.c_str());
 
 	std::cout <<" ------- RINO ----------   "<<fers_ip_address
 		<<" handle "<<handle
@@ -154,6 +165,12 @@ void FERSProducer::DoInitialise(){
 			+" ip "+fers_ip_address+" "+fers_id
 			+" connectedboards "+std::to_string(shmp->connectedboards)
 		  );
+	EUDAQ_WARN("check shared on board "+std::to_string(brd)+": "
+			+std::string(shmp->IP[brd])
+			+"*"+std::string(shmp->desc[brd])
+			+"*"+std::string(shmp->location[brd])
+			+"*"+std::string(shmp->producer[brd])
+			);
 
 }
 
@@ -233,6 +250,11 @@ void FERSProducer::DoConfigure(){
 	stair_dwell_time  = (uint32_t)(conf->Get("stair_dwell_time",0));
 
 
+	// put things in shared structure
+	shmp->HVbias[brd] = fers_hv_vbias;
+	std::string temp=conf->Get("EUDAQ_DC","no data collector");
+	strcpy(shmp->collector[brd],temp.c_str());
+	EUDAQ_WARN("check shared in board "+std::to_string(brd)+": HVbias = "+std::to_string(shmp->HVbias[brd])+" collector="+std::string(shmp->collector[brd]));
 
 
 

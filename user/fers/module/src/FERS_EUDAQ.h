@@ -105,5 +105,63 @@ uint64_t FERSunpack64(int index, std::vector<uint8_t> vec);
 ///////////////////////  FUNCTIONS IN ALPHA STATE  /////////////////////
 ///////////////////////  NO DEBUG IS DONE. AT ALL! /////////////////////
 
+// shared structure
+#include<sys/ipc.h>
+#include<sys/shm.h>
+#include<sys/types.h>
+#define SHM_KEY 0x1234
+#define MAXCHAR 100 // max size of chars in following struct
+struct shmseg {
+	int connectedboards = 0; // number of connected boards
+	const int nchannels = FERSLIB_MAX_NCH; // 64
+	int handle[MAX_NBRD]; // handle is given by FERS_OpenDevice()
+	//from ini file:
+	char IP[MAX_NBRD][MAXCHAR]; // IP address
+	char desc[MAX_NBRD][MAXCHAR]; // serial number,...
+	char location[MAX_NBRD][MAXCHAR]; // for instance "on the scope"
+	char producer[MAX_NBRD][MAXCHAR]; // title of producer
+	// from conf file:
+	float HVbias[MAX_NBRD]; // HV bias
+	char collector[MAX_NBRD][MAXCHAR]; // title of data collector
+};
+void initshm( int shmid );
+//extern int shmid;
+//
+// IN ORDER TO ACCESS IT:
+//
+// 1) put this in the private section of the class (Producer, Monitor...):
+//
+// struct shmseg *shmp;
+// int shmid;
+//
+// 2) this step have to be done ONCE, and only in the PRODUCER CLASS INITIALIZER:
+//
+// shmid = shmget(SHM_KEY, sizeof(struct shmseg), 0644|IPC_CREAT);
+// if (shmid == -1) {
+//	perror("Shared memory");
+// }
+//
+// 3) get a pointer to the struct by putting this in the class constructor of producer, maybe monitor,...
+//
+// shmp = (shmseg*)shmat(shmid, NULL, 0);
+// if (shmp == (void *) -1) {
+//	perror("Shared memory attach");
+// }
+//
+// 4) in producer constructor only, in order to initialize the contents, also add
+// initshm( shmid );
+//
+// 5) that's it! you can now access the content of the shared structure via pointer, for example
+//
+// shmp->connectedboards++;
+//
+//
+// CLEAN UP
+// in the DoTerminate of the producer (since the latter is the class that created the shared memory, it is its responsibility to also destroy it)
+//
+//if (shmdt(shmp) == -1) {
+//	perror("shmdt");
+//}
+
 
 #endif
