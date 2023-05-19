@@ -27,10 +27,10 @@ TestEvent_t     EventTest;
 StaircaseEvent_t StaircaseEvent;
 // all struct vars
 // use them to print etc
-uint8_t x_pixel = 8; // can be overwritten by the event header if needed
-uint8_t y_pixel = 8; // this too
+//uint8_t x_pixel = 8; // can be overwritten by the event header if needed
+//uint8_t y_pixel = 8; // this too
 uint8_t dataq;
-int nchan = x_pixel*y_pixel;
+int nchan = 64;//x_pixel*y_pixel;
 double   tstamp_us                      ;
 uint64_t trigger_id                     ;
 uint64_t chmask                         ;
@@ -60,6 +60,8 @@ uint32_t Tor_cnt;
 uint32_t Qor_cnt;
 uint32_t hitcnt[FERSLIB_MAX_NCH];
 
+extern struct shmseg *shmp;
+extern int shmid;
 
 class FERSEventConverter: public eudaq::StdEventConverter{
 public:
@@ -78,10 +80,10 @@ bool FERSEventConverter::Converting(eudaq::EventSPC d1, eudaq::StdEventSP d2, eu
   auto block_n_list = ev->GetBlockNumList();
   for(auto &block_n: block_n_list){
     std::vector<uint8_t> block = ev->GetBlock(block_n);
-    uint8_t x_pixel;
-    uint8_t y_pixel;
+    int board;
     uint8_t dataq;
-    int index = read_header(&block, &x_pixel, &y_pixel, &dataq);
+    //int index = read_header(&block, &x_pixel, &y_pixel, &dataq);
+    int index = read_header(&block, &board, &dataq);
 
     int expected_size = ( *( event_lengths.find(dataq) ) ).second;
     if(block.size() < index + expected_size) // map event_lengths is defined in FERS_EUDAQ.h
@@ -89,6 +91,10 @@ bool FERSEventConverter::Converting(eudaq::EventSPC d1, eudaq::StdEventSP d2, eu
 
 
     std::vector<uint8_t> data(block.begin()+index, block.end());
+
+    int x_pixel = int(sqrt(shmp->nchannels[board]));
+    int y_pixel = int(sqrt(shmp->nchannels[board]));
+    nchan = shmp->nchannels[board];
 
     // translate arrays of d1 as planes in d2, and ignore scalar quantities (not ideal, I know)
     uint16_t col;
@@ -278,6 +284,8 @@ class FERSMonitor : public eudaq::Monitor {
 		bool m_en_print;
 		bool m_en_std_converter;
 		bool m_en_std_print;
+
+		int brd;
 };
 
 namespace{
@@ -289,10 +297,20 @@ namespace{
 }
 
 FERSMonitor::FERSMonitor(const std::string & name, const std::string & runcontrol)
-	:eudaq::Monitor(name, runcontrol){  
+	:eudaq::Monitor(name, runcontrol){
 	}
 
 void FERSMonitor::DoInitialise(){
+	shmid = shmget(SHM_KEY, sizeof(struct shmseg), 0644|IPC_CREAT);
+	if (shmid == -1) {
+		perror("Shared memory");
+	}
+	EUDAQ_WARN("monitor init: shmid = "+std::to_string(shmid));
+		shmp = (shmseg*)shmat(shmid, NULL,0);
+		if (shmp == (void*)-1) {
+			perror("Shared memory attach");
+		}
+
 	auto ini = GetInitConfiguration();
 	ini->Print(std::cout);
 }
@@ -339,9 +357,13 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		//uint8_t x_pixel;
 		//uint8_t y_pixel;
 		//uint8_t dataq;
-		int index = read_header(&block, &x_pixel, &y_pixel, &dataq);
+		//int index = read_header(&block, &x_pixel, &y_pixel, &dataq);
+		int index = read_header(&block, &brd, &dataq);
 
 		int expected_size = ( *( event_lengths.find(dataq) ) ).second;
+		int x_pixel = int(sqrt(shmp->nchannels[brd]));
+		int y_pixel = int(sqrt(shmp->nchannels[brd]));
+
 		if(block.size() < index + expected_size) // map event_lengths is defined in FERS_EUDAQ.h
 			EUDAQ_THROW("Unknown data");
 

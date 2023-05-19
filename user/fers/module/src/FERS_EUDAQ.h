@@ -74,12 +74,14 @@ StaircaseEvent_t FERSunpack_staircaseevent(std::vector<uint8_t> *vec);
 // utilities used by the above methods
 
 // fill "data" with some info
-void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data);
+//void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data);
+void make_header(int board, int DataQualifier, std::vector<uint8_t> *data);
 
 // reads back essential header info (see params)
 // prints them w/ board ID info with EUDAQ_WARN
 // returns index at which raw data starts
-int read_header(std::vector<uint8_t> *data, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier);
+//int read_header(std::vector<uint8_t> *data, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier);
+int read_header(std::vector<uint8_t> *data, int *board, uint8_t *DataQualifier);
 
 void dump_vec(std::string title, std::vector<uint8_t> *vec, int start=0, int stop=0);
 
@@ -113,11 +115,11 @@ uint64_t FERSunpack64(int index, std::vector<uint8_t> vec);
 #define MAXCHAR 100 // max size of chars in following struct
 struct shmseg {
 	int connectedboards = 0; // number of connected boards
-	const int nchannels = FERSLIB_MAX_NCH; // 64
+	int nchannels[MAX_NBRD];
 	int handle[MAX_NBRD]; // handle is given by FERS_OpenDevice()
 	//from ini file:
 	char IP[MAX_NBRD][MAXCHAR]; // IP address
-	char desc[MAX_NBRD][MAXCHAR]; // serial number,...
+	char desc[MAX_NBRD][MAXCHAR]; // for example serial number
 	char location[MAX_NBRD][MAXCHAR]; // for instance "on the scope"
 	char producer[MAX_NBRD][MAXCHAR]; // title of producer
 	// from conf file:
@@ -132,14 +134,16 @@ void initshm( int shmid );
 // 1) put this in the private section of the class (Producer, Monitor...):
 //
 // struct shmseg *shmp;
-// int shmid;
+// extern int shmid;
 //
-// 2) this step have to be done ONCE, and only in the PRODUCER CLASS INITIALIZER:
-//
+// 2a) this step have to be done ONCE, and only in the PRODUCER CLASS INITIALIZER:
+// 
 // shmid = shmget(SHM_KEY, sizeof(struct shmseg), 0644|IPC_CREAT);
 // if (shmid == -1) {
 //	perror("Shared memory");
 // }
+//
+// 2b) declare int shmid; as a global variable in the producer
 //
 // 3) get a pointer to the struct by putting this in the class constructor of producer, maybe monitor,...
 //

@@ -31,6 +31,9 @@ char ErrorMsg[250];
 
 Config_t WDcfg;
 
+struct shmseg *shmp;
+int shmid;
+
 //#include<sys/ipc.h>
 //#include<sys/shm.h>
 //#include<sys/types.h>
@@ -74,8 +77,8 @@ class FERSProducer : public eudaq::Producer {
 		uint32_t stair_dwell_time;
 
 
-		struct shmseg *shmp;
-		int shmid;
+		//struct shmseg *shmp;
+		//int shmid;
 		int brd; // current board
 
 };
@@ -88,13 +91,18 @@ namespace{
 //----------DOC-MARK-----END*REG-----DOC-MARK----------
 
 FERSProducer::FERSProducer(const std::string & name, const std::string & runcontrol)
-	:eudaq::Producer(name, runcontrol), m_file_lock(0), m_exit_of_run(false){  
+	:eudaq::Producer(name, runcontrol), m_file_lock(0), m_exit_of_run(false)
+{  
+}
 
+//----------DOC-MARK-----BEG*INI-----DOC-MARK----------
+void FERSProducer::DoInitialise(){
 	// see https://www.tutorialspoint.com/inter_process_communication/inter_process_communication_shared_memory.htm
 	shmid = shmget(SHM_KEY, sizeof(struct shmseg), 0644|IPC_CREAT);
 	if (shmid == -1) {
 		perror("Shared memory");
 	}
+	EUDAQ_WARN("producer constructor: shmid = "+std::to_string(shmid));
 
 	// Attach to the segment to get a pointer to it.
 	shmp = (shmseg*)shmat(shmid, NULL, 0);
@@ -105,10 +113,7 @@ FERSProducer::FERSProducer(const std::string & name, const std::string & runcont
 	initshm( shmid );
 	//shmp->connectedboards = 0;
 
-	}
 
-//----------DOC-MARK-----BEG*INI-----DOC-MARK----------
-void FERSProducer::DoInitialise(){
 	auto ini = GetInitConfiguration();
 	std::string lock_path = ini->Get("FERS_DEV_LOCK_PATH", "ferslockfile.txt");
 	m_file_lock = fopen(lock_path.c_str(), "a");
@@ -142,15 +147,15 @@ void FERSProducer::DoInitialise(){
 		EUDAQ_THROW("unable to connect to fers with ip address: "+ fers_ip_address);
 
 	// Readout Mode
-// 0	// Disable sorting 
-// 1	// Enable event sorting by Trigger Tstamp 
-// 2	// Enable event sorting by Trigger ID
+	// 0	// Disable sorting 
+	// 1	// Enable event sorting by Trigger Tstamp 
+	// 2	// Enable event sorting by Trigger ID
 	int ROmode = ini->Get("FERS_RO_MODE",0);
 	int allocsize;
 	FERS_InitReadout(handle,ROmode,&allocsize);
 
 	// fill shared struct
-        std::string fers_prodid = ini->Get("FERS_PRODID","no prod ID");	
+	std::string fers_prodid = ini->Get("FERS_PRODID","no prod ID");	
 	strcpy(shmp->IP[brd],       fers_ip_address.c_str());
 	strcpy(shmp->desc[brd],     std::to_string(FERS_pid(handle)).c_str());
 	strcpy(shmp->location[brd], fers_id.c_str());
@@ -170,7 +175,7 @@ void FERSProducer::DoInitialise(){
 			+"*"+std::string(shmp->desc[brd])
 			+"*"+std::string(shmp->location[brd])
 			+"*"+std::string(shmp->producer[brd])
-			);
+		  );
 
 }
 
@@ -187,7 +192,7 @@ void FERSProducer::DoConfigure(){
 		m_flag_ts = false;
 		m_flag_tg = true;
 	}
-//std::string fers_conf_dir = conf->Get("FERS_CONF_DIR",".");
+	//std::string fers_conf_dir = conf->Get("FERS_CONF_DIR",".");
 	std::string fers_conf_filename= conf->Get("FERS_CONF_FILE","NOFILE");
 	//std::string conf_filename = fers_conf_dir + fers_conf_file;
 
@@ -305,9 +310,9 @@ void FERSProducer::DoTerminate(){
 	FERS_CloseDevice(handle);	
 
 	// free shared memory
-	if (shmdt(shmp) == -1) {
-		perror("shmdt");
-	}
+	//if (shmdt(shmp) == -1) {
+	//	perror("shmdt");
+	//}
 }
 
 //----------DOC-MARK-----BEG*LOOP-----DOC-MARK----------
@@ -351,107 +356,108 @@ void FERSProducer::RunLoop(){
 
 			if (!stairdone)
 			{
-			uint32_t Q_DiscrMask0 = 0xFFFFFFFF;
-			uint32_t Q_DiscrMask1 = 0xFFFFFFFF;
-			uint32_t Tlogic_Mask0 = 0xFFFFFFFF;
-			uint32_t Tlogic_Mask1 = 0xFFFFFFFF;
-			float HV;
-			HV_Get_Vbias( handle, &HV);
-			std::cout<<"handle           :"<< handle           << std::endl;
-			std::cout<<"stair_shapingt   :"<< stair_shapingt   << std::endl;
-			std::cout<<"stair_start      :"<< stair_start      << std::endl;
-			std::cout<<"stair_stop       :"<< stair_stop       << std::endl;
-			std::cout<<"stair_step       :"<< stair_step       << std::endl;
-			std::cout<<"stair_dwell_time :"<< stair_dwell_time << std::endl;
-			std::cout<<"HV               :"<< HV               << std::endl;
+				uint32_t Q_DiscrMask0 = 0xFFFFFFFF;
+				uint32_t Q_DiscrMask1 = 0xFFFFFFFF;
+				uint32_t Tlogic_Mask0 = 0xFFFFFFFF;
+				uint32_t Tlogic_Mask1 = 0xFFFFFFFF;
+				float HV;
+				HV_Get_Vbias( handle, &HV);
+				std::cout<<"handle           :"<< handle           << std::endl;
+				std::cout<<"stair_shapingt   :"<< stair_shapingt   << std::endl;
+				std::cout<<"stair_start      :"<< stair_start      << std::endl;
+				std::cout<<"stair_stop       :"<< stair_stop       << std::endl;
+				std::cout<<"stair_step       :"<< stair_step       << std::endl;
+				std::cout<<"stair_dwell_time :"<< stair_dwell_time << std::endl;
+				std::cout<<"HV               :"<< HV               << std::endl;
 
-			StaircaseEvent_t StaircaseEvent;
-			std::vector<uint8_t> data;
+				StaircaseEvent_t StaircaseEvent;
+				std::vector<uint8_t> data;
 
-			int i, s, brd;
-			uint32_t thr;
-			uint32_t hitcnt[FERSLIB_MAX_NCH], Tor_cnt, Qor_cnt;
+				int i, s, brd;
+				uint32_t thr;
+				uint32_t hitcnt[FERSLIB_MAX_NCH], Tor_cnt, Qor_cnt;
 
-			brd = FERS_INDEX(handle);
-			uint16_t nstep = (stair_stop - stair_start)/stair_step + 1;
-			float dwell_s = (float)stair_dwell_time / 1000;
-			std::cout<<"dwell_s :"<< dwell_s << std::endl;
+				brd = FERS_INDEX(handle);
+				uint16_t nstep = (stair_stop - stair_start)/stair_step + 1;
+				float dwell_s = (float)stair_dwell_time / 1000;
+				std::cout<<"dwell_s :"<< dwell_s << std::endl;
 
-			FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_COUNT);
-			FERS_WriteRegisterSlice(handle, a_acq_ctrl, 27, 29, 0);  // Set counting mode = singles
-			FERS_WriteRegister(handle, a_dwell_time, (uint32_t)(dwell_s * 1e9 / CLK_PERIOD)); 
-			FERS_WriteRegister(handle, a_qdiscr_mask_0, Q_DiscrMask0); 
-			FERS_WriteRegister(handle, a_qdiscr_mask_1, Q_DiscrMask1);  
-			FERS_WriteRegister(handle, a_tdiscr_mask_0, Tlogic_Mask0);  
-			FERS_WriteRegister(handle, a_tdiscr_mask_1, Tlogic_Mask1);  
-			FERS_WriteRegister(handle, a_citiroc_cfg, 0x00070f20); // Q-discr direct (not latched)
-			FERS_WriteRegister(handle, a_lg_sh_time, stair_dwell_time); // Shaping Time LG
-			FERS_WriteRegister(handle, a_hg_sh_time, stair_dwell_time); // Shaping Time HG
-			FERS_WriteRegister(handle, a_trg_mask, 0x1); // SW trigger only
-			FERS_WriteRegister(handle, a_t1_out_mask, 0x10); // PTRG (for debug)
-			FERS_WriteRegister(handle, a_t0_out_mask, 0x04); // T-OT (for debug)
+				FERS_WriteRegister(handle, a_acq_ctrl, ACQMODE_COUNT);
+				FERS_WriteRegisterSlice(handle, a_acq_ctrl, 27, 29, 0);  // Set counting mode = singles
+				FERS_WriteRegister(handle, a_dwell_time, (uint32_t)(dwell_s * 1e9 / CLK_PERIOD)); 
+				FERS_WriteRegister(handle, a_qdiscr_mask_0, Q_DiscrMask0); 
+				FERS_WriteRegister(handle, a_qdiscr_mask_1, Q_DiscrMask1);  
+				FERS_WriteRegister(handle, a_tdiscr_mask_0, Tlogic_Mask0);  
+				FERS_WriteRegister(handle, a_tdiscr_mask_1, Tlogic_Mask1);  
+				FERS_WriteRegister(handle, a_citiroc_cfg, 0x00070f20); // Q-discr direct (not latched)
+				FERS_WriteRegister(handle, a_lg_sh_time, stair_dwell_time); // Shaping Time LG
+				FERS_WriteRegister(handle, a_hg_sh_time, stair_dwell_time); // Shaping Time HG
+				FERS_WriteRegister(handle, a_trg_mask, 0x1); // SW trigger only
+				FERS_WriteRegister(handle, a_t1_out_mask, 0x10); // PTRG (for debug)
+				FERS_WriteRegister(handle, a_t0_out_mask, 0x04); // T-OT (for debug)
 
-			// Start Scan
-			Sleep(100);
-			std::cout<< "            --------- Rate (cps) ---------"<<std::endl;
-			std::cout<< " Adv  Thr     ChMean       T-OR       Q-OR"<<std::endl;
-			for(s = nstep; s >= 0; s--) {
+				// Start Scan
+				Sleep(100);
+				std::cout<< "            --------- Rate (cps) ---------"<<std::endl;
+				std::cout<< " Adv  Thr     ChMean       T-OR       Q-OR"<<std::endl;
+				for(s = nstep; s >= 0; s--) {
 
-				thr = stair_start + s * stair_step;
-				FERS_WriteRegister(handle, a_qd_coarse_thr, thr);	// Threshold for Q-discr
-				FERS_WriteRegister(handle, a_td_coarse_thr, thr);	// Threshold for T-discr
-				FERS_WriteRegister(handle, a_scbs_ctrl, 0x000);		// set citiroc index = 0
-				FERS_SendCommand(handle, CMD_CFG_ASIC);
-				FERS_WriteRegister(handle, a_scbs_ctrl, 0x200);		// set citiroc index = 1
-				FERS_SendCommand(handle, CMD_CFG_ASIC);
-				Sleep(500);
-				FERS_WriteRegister(handle, a_trg_mask, 0x20); // enable periodic trigger
-				FERS_SendCommand(handle, CMD_RES_PTRG);  // Reset period trigger counter and count for dwell time
-				Sleep((int)(dwell_s/1000 + 200));  // wait for a complete dwell time (+ margin), then read counters
-				FERS_ReadRegister(handle, a_t_or_cnt, &Tor_cnt);
-				FERS_ReadRegister(handle, a_q_or_cnt, &Qor_cnt);
-				if (s < nstep) {  // skip 1st pass 
-					uint64_t chmean = 0;
-					for(i=0; i<FERSLIB_MAX_NCH; i++) {
-						FERS_ReadRegister(handle, a_hitcnt + (i << 16), &hitcnt[i]);
-						chmean += (uint64_t)hitcnt[i];
+					thr = stair_start + s * stair_step;
+					FERS_WriteRegister(handle, a_qd_coarse_thr, thr);	// Threshold for Q-discr
+					FERS_WriteRegister(handle, a_td_coarse_thr, thr);	// Threshold for T-discr
+					FERS_WriteRegister(handle, a_scbs_ctrl, 0x000);		// set citiroc index = 0
+					FERS_SendCommand(handle, CMD_CFG_ASIC);
+					FERS_WriteRegister(handle, a_scbs_ctrl, 0x200);		// set citiroc index = 1
+					FERS_SendCommand(handle, CMD_CFG_ASIC);
+					Sleep(500);
+					FERS_WriteRegister(handle, a_trg_mask, 0x20); // enable periodic trigger
+					FERS_SendCommand(handle, CMD_RES_PTRG);  // Reset period trigger counter and count for dwell time
+					Sleep((int)(dwell_s/1000 + 200));  // wait for a complete dwell time (+ margin), then read counters
+					FERS_ReadRegister(handle, a_t_or_cnt, &Tor_cnt);
+					FERS_ReadRegister(handle, a_q_or_cnt, &Qor_cnt);
+					if (s < nstep) {  // skip 1st pass 
+						uint64_t chmean = 0;
+						for(i=0; i<FERSLIB_MAX_NCH; i++) {
+							FERS_ReadRegister(handle, a_hitcnt + (i << 16), &hitcnt[i]);
+							chmean += (uint64_t)hitcnt[i];
+
+							// fill structure
+							StaircaseEvent.hitcnt[i] = hitcnt[i];
+						}
+						chmean /= FERSLIB_MAX_NCH;
+						int perc = (100 * (nstep-s)) / nstep;
+						if (perc > 100) perc = 100;
+						std::cout<< perc <<" "<< thr <<" "<< chmean/dwell_s <<" "<< Tor_cnt/dwell_s <<" "<< Qor_cnt/dwell_s <<std::endl;
 
 						// fill structure
-						StaircaseEvent.hitcnt[i] = hitcnt[i];
+						StaircaseEvent.threshold = (uint16_t)thr;
+						StaircaseEvent.shapingt = stair_shapingt;
+						StaircaseEvent.dwell_time = stair_dwell_time;
+						StaircaseEvent.chmean = (uint32_t)chmean;
+						StaircaseEvent.HV = (uint32_t)(1000*HV);
+						StaircaseEvent.Tor_cnt = Tor_cnt;
+						StaircaseEvent.Qor_cnt = Qor_cnt;
+
+
+						Event = (void*)(&StaircaseEvent);
+						//make_header(handle, x_pixel, y_pixel, DTQ_STAIRCASE, &data);
+						make_header(brd, DTQ_STAIRCASE, &data);
+						FERSpackevent(Event, DTQ_STAIRCASE, &data);
+
+
+						uint32_t block_id = (nstep-1) - s; // starts at 0
+						ev->AddBlock(block_id, data);
+
+						std::this_thread::sleep_until(tp_end_of_busy);
 					}
-					chmean /= FERSLIB_MAX_NCH;
-					int perc = (100 * (nstep-s)) / nstep;
-					if (perc > 100) perc = 100;
-					std::cout<< perc <<" "<< thr <<" "<< chmean/dwell_s <<" "<< Tor_cnt/dwell_s <<" "<< Qor_cnt/dwell_s <<std::endl;
-
-					// fill structure
-					StaircaseEvent.threshold = (uint16_t)thr;
-					StaircaseEvent.shapingt = stair_shapingt;
-					StaircaseEvent.dwell_time = stair_dwell_time;
-					StaircaseEvent.chmean = (uint32_t)chmean;
-					StaircaseEvent.HV = (uint32_t)(1000*HV);
-					StaircaseEvent.Tor_cnt = Tor_cnt;
-					StaircaseEvent.Qor_cnt = Qor_cnt;
-
-
-					Event = (void*)(&StaircaseEvent);
-					make_header(handle, x_pixel, y_pixel, DTQ_STAIRCASE, &data);
-					FERSpackevent(Event, DTQ_STAIRCASE, &data);
-
-
-					uint32_t block_id = (nstep-1) - s; // starts at 0
-					ev->AddBlock(block_id, data);
-
-					std::this_thread::sleep_until(tp_end_of_busy);
 				}
-			}
-			stairdone = true;
-			SendEvent(std::move(ev));
+				stairdone = true;
+				SendEvent(std::move(ev));
 
 			} else {
-			FERSProducer::DoStopRun(); // just run once
-			EUDAQ_INFO("Producer > staircase event sent");
-			EUDAQ_WARN("*** *** PLEASE STOP THE RUN *** ***");
+				FERSProducer::DoStopRun(); // just run once
+				EUDAQ_INFO("Producer > staircase event sent");
+				EUDAQ_WARN("*** *** PLEASE STOP THE RUN *** ***");
 			}
 
 		} else { // not staircase
@@ -515,7 +521,8 @@ void FERSProducer::RunLoop(){
 			// event creation
 			if ( DataQualifier >0 ) {
 				std::vector<uint8_t> data;
-				make_header(handle, x_pixel, y_pixel, DataQualifier, &data);
+				//make_header(handle, x_pixel, y_pixel, DataQualifier, &data);
+				make_header(brd, DataQualifier, &data);
 				std::cout<<"producer > " << "x_pixel: " <<	x_pixel << " y_pixel: " << y_pixel << " DataQualifier : " <<	DataQualifier << std::endl;
 				FERSpackevent(Event, DataQualifier, &data);
 				uint32_t block_id = m_plane_id;

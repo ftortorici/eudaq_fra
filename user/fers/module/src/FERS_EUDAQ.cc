@@ -532,30 +532,32 @@ StaircaseEvent_t FERSunpack_staircaseevent(std::vector<uint8_t> *vec){
 
 //////////////////////////
 // fill "data" with some info
-void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data)
+//void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier, std::vector<uint8_t> *data)
+void make_header(int board, int DataQualifier, std::vector<uint8_t> *data)
 {
 	uint8_t n=0;
 	std::vector<uint8_t> vec;
 
 	// this are needed
-	vec.push_back(x_pixel);
-	vec.push_back(y_pixel);
+	//vec.push_back(x_pixel);
+	//vec.push_back(y_pixel);
+	vec.push_back((uint8_t)board);
 	vec.push_back((uint8_t)DataQualifier);
-	n+=3;
+	n+=2; //3
 
 	// ID info:
 	//FERS_BoardInfo_t binfo;
 	//FERS_ReadBoardInfo(handle, &binfo);
 
 	//handle
-	vec.push_back((uint8_t)handle);
-	n++;
+	//vec.push_back((uint8_t)handle);
+	//n++;
 
 	// serial number
-	int sernum=FERS_pid(handle);
-	vec.push_back( (uint8_t)( (sernum >> 0) & 0xFF ) ) ;
-	vec.push_back( (uint8_t)( (sernum >> 8) & 0xFF ) ) ;
-	n+=2;
+	//int sernum=FERS_pid(handle);
+	//vec.push_back( (uint8_t)( (sernum >> 0) & 0xFF ) ) ;
+	//vec.push_back( (uint8_t)( (sernum >> 8) & 0xFF ) ) ;
+	//n+=2;
 
 	// put everything in data, prefixing header with its size
 	data->push_back(n);
@@ -569,7 +571,8 @@ void make_header(int handle, uint8_t x_pixel, uint8_t y_pixel, int DataQualifier
 // reads back essential header info (see params)
 // prints them w/ board ID info with EUDAQ_WARN
 // returns index at which raw data starts
-int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier)
+//int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, uint8_t *DataQualifier)
+int read_header(std::vector<uint8_t> *vec, int *board, uint8_t *DataQualifier)
 {
 	std::vector<uint8_t> data(vec->begin(), vec->end());
 	int index = data.at(0);
@@ -578,21 +581,23 @@ int read_header(std::vector<uint8_t> *vec, uint8_t *x_pixel, uint8_t *y_pixel, u
 	if(data.size() < index+1)
 		EUDAQ_THROW("Unknown data");
 	
-	*x_pixel = data.at(1);
-	*y_pixel = data.at(2);
-	*DataQualifier = data.at(3);
+	//*x_pixel = data.at(1);
+	//*y_pixel = data.at(2);
+	//*DataQualifier = data.at(3);
+	*board = data.at(1);
+	*DataQualifier = data.at(2);
 
-	uint8_t handle=data.at(4);
-	uint16_t sernum=FERSunpack16(5,data);
+	//uint8_t handle=data.at(4);
+	//uint16_t sernum=FERSunpack16(5,data);
 
-	std::string printme = "Monitor > received from FERS serial# "
-		+ std::to_string(sernum)
-		+" handle "+std::to_string(handle)
-		+" n "+std::to_string(index)
-		+" x "+std::to_string(*x_pixel)
-		+" y "+std::to_string(*y_pixel)
-		;
-	EUDAQ_WARN(printme);
+	//std::string printme = "Monitor > received from FERS serial# "
+	//	+ std::to_string(sernum)
+	//	+" handle "+std::to_string(handle)
+	//	+" n "+std::to_string(index)
+	//	+" x "+std::to_string(*x_pixel)
+	//	+" y "+std::to_string(*y_pixel)
+	//	;
+	//EUDAQ_WARN(printme);
 
 	return index+1; // first header byte is header size, then index bytes
 };
@@ -622,6 +627,8 @@ void initshm( int shmid )
 	for (int i=0; i<MAX_NBRD; i++)
 	{
 		shmp->HVbias[i]=0;
+		shmp->handle[i]=0;
+		shmp->nchannels[i] = FERSLIB_MAX_NCH; // 64
 		memset(shmp->IP       [i], '\0', MAXCHAR);
 		memset(shmp->desc     [i], '\0', MAXCHAR);
 		memset(shmp->location [i], '\0', MAXCHAR);
