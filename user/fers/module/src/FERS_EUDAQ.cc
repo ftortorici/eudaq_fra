@@ -636,3 +636,18 @@ void initshm( int shmid )
 		memset(shmp->collector[i], '\0', MAXCHAR);
 	}
 }
+
+void dumpshm( struct shmseg* shmp, int brd )
+{
+	std::string output = "dumping shmp for board "+std::to_string(brd)+
+	" IP = "+shmp->IP[brd]+
+	" desc = "+shmp->desc[brd]+
+	" HVbias = "+std::to_string(shmp->HVbias[brd])+
+	" location = "+shmp->location[brd]+
+	" channels = "+std::to_string(shmp->nchannels[brd])+
+	" handle = "+std::to_string(shmp->handle[brd])+
+	" producer = "+shmp->producer[brd]+
+	" collector = "+shmp->collector[brd]+
+	"";
+	EUDAQ_WARN(output);
+}

@@ -310,9 +310,9 @@ void FERSProducer::DoTerminate(){
 	FERS_CloseDevice(handle);	
 
 	// free shared memory
-	//if (shmdt(shmp) == -1) {
-	//	perror("shmdt");
-	//}
+	if (shmdt(shmp) == -1) {
+		perror("shmdt");
+	}
 }
 
 //----------DOC-MARK-----BEG*LOOP-----DOC-MARK----------
@@ -373,11 +373,11 @@ void FERSProducer::RunLoop(){
 				StaircaseEvent_t StaircaseEvent;
 				std::vector<uint8_t> data;
 
-				int i, s, brd;
+				int i, s, board;
 				uint32_t thr;
 				uint32_t hitcnt[FERSLIB_MAX_NCH], Tor_cnt, Qor_cnt;
 
-				brd = FERS_INDEX(handle);
+				board = FERS_INDEX(handle);
 				uint16_t nstep = (stair_stop - stair_start)/stair_step + 1;
 				float dwell_s = (float)stair_dwell_time / 1000;
 				std::cout<<"dwell_s :"<< dwell_s << std::endl;

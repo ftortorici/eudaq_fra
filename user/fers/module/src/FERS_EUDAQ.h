@@ -127,35 +127,42 @@ struct shmseg {
 	char collector[MAX_NBRD][MAXCHAR]; // title of data collector
 };
 void initshm( int shmid );
-//extern int shmid;
+void dumpshm( struct shmseg* shmp, int brd );
 //
 // IN ORDER TO ACCESS IT:
 //
-// 1) put this in the private section of the class (Producer, Monitor...):
+// 1) general note: the current board number variable, say
+// int brd;
+// must be private in both producer and monitor 
+//
+// 2) in the PRODUCER:
+// put this in the global section of the file:
 //
 // struct shmseg *shmp;
+// int shmid;
+//
+// 3) in the MONITOR:
+// put this in the global section of the file:
+//
+// extern struct shmseg *shmp;
 // extern int shmid;
 //
-// 2a) this step have to be done ONCE, and only in the PRODUCER CLASS INITIALIZER:
+// 4) this goes in DoInitialise() of both PRODUCER and MONITOR
 // 
 // shmid = shmget(SHM_KEY, sizeof(struct shmseg), 0644|IPC_CREAT);
 // if (shmid == -1) {
 //	perror("Shared memory");
 // }
-//
-// 2b) declare int shmid; as a global variable in the producer
-//
-// 3) get a pointer to the struct by putting this in the class constructor of producer, maybe monitor,...
-//
 // shmp = (shmseg*)shmat(shmid, NULL, 0);
 // if (shmp == (void *) -1) {
 //	perror("Shared memory attach");
 // }
 //
-// 4) in producer constructor only, in order to initialize the contents, also add
+// 5) in DoInitialise() of PRODUCER, also add
+//
 // initshm( shmid );
 //
-// 5) that's it! you can now access the content of the shared structure via pointer, for example
+// 6) that's it! you can now access the content of the shared structure via pointer, for example
 //
 // shmp->connectedboards++;
 //
