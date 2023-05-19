@@ -1,7 +1,0 @@
-#!/bin/sh
-rm -f eu*
-cd ../build
-#make -j 8
-make install
-cd ../bin
-sh vai
