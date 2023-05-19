@@ -31,6 +31,7 @@ endif()
 
 if(USER_FERS_BUILD)
   list(APPEND USER_HARDWARE_SRC
+    src/Statistics.cc
     src/FERSutils.cc
     src/FERS_LLeth.cc
     src/FERS_LLtdl.cc
@@ -38,7 +39,9 @@ if(USER_FERS_BUILD)
     src/FERS_readout.cc
     src/console.cc
     src/MultiPlatform.cc
-    src/FERSlib.cc)
+    src/FERSlib.cc
+    src/paramparser.cc
+    src/configure.cc)
 endif()
 
 install(TARGETS ${USER_HARDWARE_LIBRARY}
