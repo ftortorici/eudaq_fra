@@ -111,7 +111,7 @@ uint64_t FERSunpack64(int index, std::vector<uint8_t> vec);
 #include<sys/ipc.h>
 #include<sys/shm.h>
 #include<sys/types.h>
-#define SHM_KEY 0x1234
+#define SHM_KEY 0x12345
 #define MAXCHAR 100 // max size of chars in following struct
 struct shmseg {
 	int connectedboards = 0; // number of connected boards
@@ -174,5 +174,11 @@ void dumpshm( struct shmseg* shmp, int brd );
 //	perror("shmdt");
 //}
 
+// WARNING!!!
+// for no logical reason (solar flare? gone fishing? wrong
+// days of the month?) the SHM_KEY may suddenly become
+// invalid, causing a crash of producer in the init stage.
+// Just change it to something else 
+// Tried (bad) keys: 0x1234
 
 #endif
