@@ -1,7 +1,7 @@
 
 ./euRun &
 ./euLog &
-sleep 2
+sleep 1
 ./euCliProducer -n FERSProducer -t my_fers0 &
 ./euCliProducer -n FERSProducer -t my_fers1 &
 sleep 1
