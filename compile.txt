@@ -1,0 +1,5 @@
+mkdir -p build
+cd build
+cmake -DEUDAQ_BUILD_GUI=ON -DUSER_FERS_BUILD=ON ..
+
+make -j 8

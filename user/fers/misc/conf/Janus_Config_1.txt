@@ -52,7 +52,7 @@ OF_Staircase                       0                    # Staircase
 # ------------------------------------------------------------------------------------------
 # AcqMode
 # ------------------------------------------------------------------------------------------
-AcquisitionMode                    COUNTING         # Acquisition mode. Options: SPECTROSCOPY, SPECT_TIMING, TIMING_CSTART, TIMING_CSTOP, COUNTING, WAVEFORM
+AcquisitionMode                    SPECTROSCOPY         # Acquisition mode. Options: SPECTROSCOPY, SPECT_TIMING, TIMING_CSTART, TIMING_CSTOP, COUNTING, WAVEFORM
 EnableToT                          1                    # Enable ToT in timing mode (Enabled: ToA = 16 bits, ToT = 9 bits; Disabled: ToA = 25 bits)
 BunchTrgSource                     PTRG                 # Bunch Trigger source (for spectroscopy and counting modes). Options: T0-IN, T1-IN, Q-OR, T-OR, TLOGIC, PTRG
 VetoSource                         DISABLED             # The veto signal inhibits the bunch trigger (active high). Options: DISABLED, SW_CMD, T0-IN, T1-IN

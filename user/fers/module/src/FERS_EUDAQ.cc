@@ -639,15 +639,18 @@ void initshm( int shmid )
 
 void dumpshm( struct shmseg* shmp, int brd )
 {
-	std::string output = "dumping shmp for board "+std::to_string(brd)+
-	" IP = "+shmp->IP[brd]+
-	" desc = "+shmp->desc[brd]+
-	" HVbias = "+std::to_string(shmp->HVbias[brd])+
-	" location = "+shmp->location[brd]+
-	" channels = "+std::to_string(shmp->nchannels[brd])+
-	" handle = "+std::to_string(shmp->handle[brd])+
-	" producer = "+shmp->producer[brd]+
-	" collector = "+shmp->collector[brd]+
+	std::string output = "*** shmp["+std::to_string(brd)+"]="+
+	" desc: "+shmp->desc[brd]+
+	" location:"+shmp->location[brd]+
+	"";
+	EUDAQ_WARN(output);
+	output = "*** shmp["+std::to_string(brd)+"]="+
+	" IP:"+shmp->IP[brd]+
+	" HVbias:"+std::to_string(shmp->HVbias[brd])+
+	" channels:"+std::to_string(shmp->nchannels[brd])+
+	" handle:"+std::to_string(shmp->handle[brd])+
+	" producer:"+shmp->producer[brd]+
+	" collector:"+shmp->collector[brd]+
 	"";
 	EUDAQ_WARN(output);
 }
