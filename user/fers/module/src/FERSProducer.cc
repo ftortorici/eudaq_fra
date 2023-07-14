@@ -215,6 +215,7 @@ void FERSProducer::DoConfigure(){
 		}
 	}
 	fclose(conf_file);
+	//EUDAQ_WARN( "AcquisitionMode: "+std::to_string(WDcfg.AcquisitionMode));
 
 	ret = ConfigureFERS(handle, 0); // 0 = hard, 1 = soft (no acq restart)
 	if (ret != 0)
@@ -259,7 +260,9 @@ void FERSProducer::DoConfigure(){
 	shmp->HVbias[brd] = fers_hv_vbias;
 	std::string temp=conf->Get("EUDAQ_DC","no data collector");
 	strcpy(shmp->collector[brd],temp.c_str());
-	EUDAQ_WARN("check shared in board "+std::to_string(brd)+": HVbias = "+std::to_string(shmp->HVbias[brd])+" collector="+std::string(shmp->collector[brd]));
+	shmp->AcquisitionMode[brd] = WDcfg.AcquisitionMode;
+	EUDAQ_WARN("check shared in board "+std::to_string(brd)+": HVbias = "+std::to_string(shmp->HVbias[brd])+" collector="+std::string(shmp->collector[brd])
+	+" acqmode="+std::to_string(shmp->AcquisitionMode[brd]));
 
 
 
@@ -331,6 +334,7 @@ void FERSProducer::RunLoop(){
 
 		// staircase?
 		static bool stairdone = false;
+
 		if (stair_do)
 		{	
 			std::vector<uint8_t> hit(x_pixel*y_pixel, 0);

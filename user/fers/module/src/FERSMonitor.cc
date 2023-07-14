@@ -137,9 +137,11 @@ void FERSMonitor::DoConfigure(){
 }
 
 void FERSMonitor::DoStartRun(){
+	openasciistream(shmp, brd);
 }
 
 void FERSMonitor::DoStopRun(){
+	closeasciistream(shmp);
 }
 
 void FERSMonitor::DoReset(){
@@ -228,6 +230,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 		int hitrows, hitcols; // how many rows and columns to display
 		std::vector<uint16_t> hit; // fill it with energyHG or whatever
 
+		std::string ascii = "";
 		dumpshm( shmp, brd);
 		// string to prefix, in order to identify the board responsible for the current message in the log
 		std::string prefix = "["+std::string(shmp->IP[brd])+"]: ";
@@ -256,6 +259,8 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_INFO(prefix+"trigger_id: "+std::to_string(trigger_id));
 				EUDAQ_INFO(prefix+"chmask    : "+std::to_string(chmask    ));
 				EUDAQ_INFO(prefix+"qdmask    : "+std::to_string(qdmask    ));
+
+				ascii += std::to_string(tstamp_us);
 				break;
 			case DTQ_TIMING:
 				EUDAQ_WARN(prefix+"Trying to decode TIMING event");
@@ -274,6 +279,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				hitrows = MAX_LIST_SIZE / hitcols;
 				// dump the scalar ones
 				EUDAQ_INFO(prefix+"nhits : "+std::to_string(nhits ));
+				ascii += std::to_string(nhits);
 				break;
 			case DTQ_COUNT:
 				EUDAQ_WARN(prefix+"Trying to decode COUNTING event");
@@ -298,6 +304,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_INFO(prefix+"chmask : "+std::to_string(chmask ));
 				EUDAQ_INFO(prefix+"t_or_counts : "+std::to_string(t_or_counts ));
 				EUDAQ_INFO(prefix+"q_or_counts : "+std::to_string(q_or_counts ));
+				ascii += std::to_string(tstamp_us);
 				break;
 			case DTQ_WAVE:
 				EUDAQ_WARN(prefix+"Trying to decode WAVE event, espected "+std::to_string(sizeof(EventWave))+" bytes");
@@ -321,6 +328,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_INFO(prefix+"trigger_id : "+std::to_string(trigger_id ));
 				EUDAQ_INFO(prefix+"tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_INFO(prefix+"ns : "+std::to_string(ns ));
+				ascii += std::to_string(tstamp_us);
 				break;
 			case DTQ_TSPECT:
 				EUDAQ_WARN(prefix+"Trying to decode TSPECT event");
@@ -349,6 +357,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_INFO(prefix+"trigger_id: "+std::to_string(trigger_id));
 				EUDAQ_INFO(prefix+"chmask    : "+std::to_string(chmask    ));
 				EUDAQ_INFO(prefix+"qdmask    : "+std::to_string(qdmask    ));
+				ascii += std::to_string(tstamp_us);
 				break;
 			case DTQ_TEST:
 				EUDAQ_WARN(prefix+"Trying to decode TEST event");
@@ -369,6 +378,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				EUDAQ_INFO(prefix+"tstamp_us : "+std::to_string(tstamp_us ));
 				EUDAQ_INFO(prefix+"trigger_id : "+std::to_string(trigger_id ));
 				EUDAQ_INFO(prefix+"nwords : "+std::to_string(nwords ));
+				ascii += std::to_string(tstamp_us);
 				break;
 			case DTQ_STAIRCASE:
 				EUDAQ_WARN(prefix+"Trying to decode STAIRCASE event");
@@ -397,6 +407,7 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 				hitcols = y_pixel;
 				hitrows = x_pixel;
 				EUDAQ_WARN(prefix+"*** *** PLEASE STOP THE RUN *** ***");
+				ascii += std::to_string(rateHz);
 		}
 
 
@@ -406,8 +417,11 @@ void FERSMonitor::DoReceive(eudaq::EventSP ev){
 			printme="";
 			for(size_t col = 0; col < hitcols; ++col){
 				printme += std::to_string(hit[col+row*x_pixel]) +" ";
+				ascii += ","+std::to_string(hit[col+row*x_pixel]);
 			};
 			EUDAQ_INFO(prefix+printme);
+			// also in ascii file
+			writeasciistream(brd, ascii);
 		}
 
 	}

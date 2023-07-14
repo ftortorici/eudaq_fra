@@ -21,6 +21,10 @@
 #include "DataSender.hh"
 #include "FERS_EUDAQ.h"
 
+std::fstream runfile[MAX_NBRD]; // pointers to ascii output data files
+
+
+
 // puts a nbits (16, 32, 64) integer into an 8 bits vector.
 // bytes are in a machine-independent order
 void FERSpack(int nbits, uint32_t input, std::vector<uint8_t> *vec)
@@ -629,6 +633,7 @@ void initshm( int shmid )
 		shmp->HVbias[i]=0;
 		shmp->handle[i]=0;
 		shmp->nchannels[i] = FERSLIB_MAX_NCH; // 64
+		shmp->AcquisitionMode[i] = 0;
 		memset(shmp->IP       [i], '\0', MAXCHAR);
 		memset(shmp->desc     [i], '\0', MAXCHAR);
 		memset(shmp->location [i], '\0', MAXCHAR);
@@ -636,6 +641,59 @@ void initshm( int shmid )
 		memset(shmp->collector[i], '\0', MAXCHAR);
 	}
 }
+
+void openasciistream(shmseg* shmp, int brd){
+	std::map<int, std::string> asciiheader;
+	asciiheader[ 0             ] = "#INVALID"              ;
+	asciiheader[ DTQ_SPECT     ] = "#tstamp_us,energyHG[]" ;
+	asciiheader[ DTQ_TIMING    ] = "#nhits,ToT[]"          ;
+	asciiheader[ DTQ_COUNT     ] = "#tstamp_us,counts[]"   ;
+	asciiheader[ DTQ_WAVE      ] = "#tstamp_us,wave_hg[]"  ;
+	asciiheader[ DTQ_TSPECT    ] = "#tstamp_us,energyHG[]" ;
+	asciiheader[ DTQ_TEST      ] = "#tstamp_us,test_data[]";
+	asciiheader[ DTQ_STAIRCASE ] = "#rateHz,hitcnt[]"      ;
+
+	EUDAQ_INFO("openasciistream called for board "+std::to_string(brd));
+	int a = shmp->AcquisitionMode[brd];
+	std::fstream readme;
+	readme.open("readme_test.txt",std::ios::out);
+	readme<<"board: "<< brd << std::endl;
+	readme<<"AcquisitionMode: "<< a <<std::endl;
+	readme<<"header of ascii file: "<< asciiheader[a] <<std::endl;
+	readme<<"desc: "<< shmp->desc[brd] << std::endl;
+	readme<<"location:"<< shmp->location[brd] << std::endl;
+	readme<<"IP:"<< shmp->IP[brd] << std::endl;
+	readme<<"HVbias:"<< std::to_string(shmp->HVbias[brd]) << std::endl;
+	readme<<"channels:"<< std::to_string(shmp->nchannels[brd]) << std::endl;
+	readme<<"handle:"<< std::to_string(shmp->handle[brd]) << std::endl;
+	readme<<"producer:"<< shmp->producer[brd] << std::endl;
+	readme<<"collector:"<< shmp->collector[brd] << std::endl;
+	readme.close();
+	EUDAQ_INFO("Created readme");
+
+	for (int i=0; i<shmp->connectedboards; i++){
+		runfile[i].open(
+			"board_" + std::to_string(i)+"_test.txt"
+			,std::ios::out);
+		if (!runfile[i]){
+		EUDAQ_WARN("NOT Opened ascii brd "+std::to_string(brd));
+		} else {
+		EUDAQ_WARN("Opened ascii brd "+std::to_string(brd));
+		}              
+	}                      
+}                              
+void closeasciistream(shmseg* shmp){
+	for (int i=0; i<shmp->connectedboards; i++){
+		runfile[i].close();
+		EUDAQ_WARN("closed ascii file brd "+std::to_string(i));
+	};
+}
+void writeasciistream(int brd, std::string buffer){
+	//EUDAQ_WARN("writeasciistream called with brd = "+std::to_string(brd)+", buffer = "+buffer);
+	runfile[brd] << buffer <<std::endl;
+}
+
+
 
 void dumpshm( struct shmseg* shmp, int brd )
 {
@@ -651,6 +709,7 @@ void dumpshm( struct shmseg* shmp, int brd )
 	" handle:"+std::to_string(shmp->handle[brd])+
 	" producer:"+shmp->producer[brd]+
 	" collector:"+shmp->collector[brd]+
+	//" AcquisitionMode:"+std::to_string(shmp->AcquisitionMode[brd])+
 	"";
 	EUDAQ_WARN(output);
 }
